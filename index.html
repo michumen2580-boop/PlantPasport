@@ -1232,10 +1232,31 @@ function seedDefaultPlants() {
   save();
 }
 
+// ─── MIGRACJA NUMERÓW EWIDENCYJNYCH ──────────────────────────────────────────
+function migrateRegNos() {
+  const now = new Date();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const yy = String(now.getFullYear()).slice(2);
+  const newPrefix = mm + yy; // np. "0626"
+  let changed = false;
+  data.plants.forEach(p => {
+    if (!p.regNo) return;
+    // Zamień formaty: "11.22-XX", "11.22-X", "1122-XX", "0622-XX" → "0626-XX"
+    const m = p.regNo.match(/(?:\d{2}[.\-]\d{2}[.\-]|(?:0622|1122)[-])(\d+)/);
+    if (m) {
+      const num = m[1].padStart(2,'0');
+      const newNo = newPrefix + '-' + num;
+      if (p.regNo !== newNo) { p.regNo = newNo; changed = true; }
+    }
+  });
+  if (changed) { save(); }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 load();
 seedDefaultPlants();
-document.getElementById('headerInfo').textContent = `v1.2.0 · ${data.plants.length} roślin`;
+migrateRegNos();
+document.getElementById('headerInfo').textContent = `v1.2.1 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
