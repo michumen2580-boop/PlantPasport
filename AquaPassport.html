@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a3a2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AquaPassport</title>
+<style>
+  :root {
+    --bg: #0f1f17;
+    --surface: #1a2e22;
+    --card: #1f3828;
+    --border: #2d5040;
+    --accent: #4ade80;
+    --accent2: #22c55e;
+    --text: #e8f5e9;
+    --text2: #a5c9b0;
+    --text3: #6b9e7a;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* LAYOUT */
+  #app { display: flex; flex-direction: column; min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; flex: 1; }
+  header .ver { font-size: 0.65rem; color: var(--text3); }
+  main { flex: 1; padding: 16px; max-width: 600px; width: 100%; margin: 0 auto; }
+  nav { background: var(--surface); border-top: 1px solid var(--border); display: flex; position: sticky; bottom: 0; z-index: 100; }
+  nav button { flex: 1; padding: 10px 4px 8px; background: none; border: none; color: var(--text3); font-size: 0.6rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: color .2s; }
+  nav button svg { width: 22px; height: 22px; }
+  nav button.active { color: var(--accent); }
+
+  /* SCREENS */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+  .card-row { display: flex; justify-content: space-between; align-items: center; }
+  .plant-name { font-weight: 600; font-size: 0.95rem; }
+  .plant-latin { font-size: 0.75rem; color: var(--text3); font-style: italic; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
+  .badge-ok { background: #14532d; color: var(--accent); }
+  .badge-low { background: #713f12; color: var(--warn); }
+  .badge-empty { background: #3b1f1f; color: var(--danger); }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: opacity .2s; }
+  .btn:active { opacity: 0.7; }
+  .btn-primary { background: var(--accent); color: #0a1a10; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+  .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* FORMS */
+  .form-group { margin-bottom: 12px; }
+  label { display: block; font-size: 0.78rem; color: var(--text2); margin-bottom: 4px; }
+  input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); padding: 9px 11px; font-size: 0.9rem; font-family: var(--font); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 70px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  /* MODAL */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; overflow-y: auto; padding: 20px 16px; }
+  .overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; width: 100%; max-width: 520px; margin: auto; }
+  .modal h2 { font-size: 1rem; margin-bottom: 16px; color: var(--accent); }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* SEARCH */
+  .search-box { position: relative; margin-bottom: 12px; }
+  .search-box input { padding-left: 36px; }
+  .search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); width: 18px; }
+
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; text-align: center; }
+  .stat-num { font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .stat-lbl { font-size: 0.65rem; color: var(--text3); margin-top: 3px; }
+
+  /* CHECKBOX LIST */
+  .check-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .check-item:last-child { border-bottom: none; }
+  .check-item input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+  .check-qty { width: 54px !important; padding: 4px 6px; font-size: 0.82rem; }
+
+  /* TABS */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .tab { padding: 8px 14px; font-size: 0.82rem; cursor: pointer; color: var(--text3); border-bottom: 2px solid transparent; transition: .2s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* HEALTH */
+  .health-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+  .h-good { background: var(--accent); }
+  .h-mid { background: var(--warn); }
+  .h-bad { background: var(--danger); }
+
+  /* PASSPORT PREVIEW */
+  .passport-preview { border: 2px solid var(--border); border-radius: 8px; padding: 10px; background: white; color: #111; font-size: 0.72rem; font-family: Arial, sans-serif; }
+  .pp-header { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #ccc; padding-bottom: 6px; margin-bottom: 6px; }
+  .pp-eu { font-size: 1.2rem; }
+  .pp-title { font-weight: 700; font-size: 0.78rem; }
+  .pp-subtitle { font-size: 0.62rem; color: #555; }
+  .pp-body { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .pp-left p { margin-bottom: 3px; }
+  .pp-right p { margin-bottom: 2px; }
+  .pp-footer { text-align: center; font-size: 0.62rem; color: #555; margin-top: 6px; border-top: 1px solid #ccc; padding-top: 4px; }
+
+  /* AQUARIUM PHOTO */
+  .aqua-img-wrap { position: relative; width: 100%; border-radius: var(--radius); overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
+  .aqua-img-wrap img { width: 100%; display: block; }
+  .aqua-marker { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); border: 2px solid white; transform: translate(-50%,-50%); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; color: #0a1a10; }
+
+  /* REPORT */
+  .report-entry { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+  .report-date { font-size: 0.72rem; color: var(--text3); }
+  .report-title { font-weight: 600; margin: 3px 0; }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty svg { width: 48px; height: 48px; margin: 0 auto 10px; display: block; opacity: 0.4; }
+  .empty p { font-size: 0.85rem; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #0a1a10; padding: 8px 18px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; opacity: 0; transition: .3s; z-index: 999; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* PRINT PREVIEW indicator */
+  .print-info { background: #14532d; border: 1px solid var(--accent2); border-radius: 8px; padding: 10px 12px; font-size: 0.78rem; color: var(--accent); margin-bottom: 12px; }
+
+  @media print {
+    nav, header, .no-print { display: none !important; }
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span style="font-size:1.4rem">🌿</span>
+    <h1>AquaPassport</h1>
+    <span class="ver" id="headerInfo"></span>
+  </header>
+
+  <main>
+    <!-- SCREEN: ROŚLINY -->
+    <div id="screen-plants" class="screen active">
+      <div class="stats-row" id="statsRow"></div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="searchInput" placeholder="Szukaj rośliny…" oninput="renderPlants()">
+      </div>
+      <div class="btn-row no-print" style="margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" onclick="openAddPlant()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+          Dodaj roślinę
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="openSettings()">⚙️ Ustawienia</button>
+      </div>
+      <div id="plantList"></div>
+    </div>
+
+    <!-- SCREEN: PRZYCINKI / DRUK -->
+    <div id="screen-print" class="screen">
+      <div class="print-info">
+        ✂️ Zaznacz rośliny po przycince — wygeneruję PDF z naklejkami A7 (8/strona A4)
+      </div>
+      <div class="btn-row" style="margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" onclick="generatePassportPDF()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Generuj PDF
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="clearSelection()">Wyczyść wybór</button>
+        <button class="btn btn-outline btn-sm" onclick="exportExcel()">📊 Eksport Excel</button>
+        <button class="btn btn-outline btn-sm" onclick="exportListPDF()">📄 Lista PDF</button>
+      </div>
+      <div id="printList"></div>
+    </div>
+
+    <!-- SCREEN: AKWARIUM -->
+    <div id="screen-aqua" class="screen">
+      <div class="btn-row" style="margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('aquaImgInput').click()">
+          📸 Dodaj/zmień zdjęcie
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="toggleMarkMode()" id="markModeBtn">📍 Zaznacz roślinę</button>
+      </div>
+      <input type="file" id="aquaImgInput" accept="image/*" style="display:none" onchange="loadAquaImg(event)">
+      <div id="aquaWrap">
+        <div class="empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <p>Dodaj zdjęcie akwarium<br>i zaznaczaj rośliny</p>
+        </div>
+      </div>
+      <div id="aquaLegend" style="margin-top:10px"></div>
+    </div>
+
+    <!-- SCREEN: ZDROWIE -->
+    <div id="screen-health" class="screen">
+      <div class="btn-row" style="margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" onclick="openAddReport()">+ Nowy raport</button>
+      </div>
+      <div id="healthOverview"></div>
+      <div id="reportList"></div>
+    </div>
+  </main>
+
+  <nav>
+    <button class="active" onclick="showScreen('plants',this)" id="nav-plants">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V12M12 12C12 7 7 3 3 3c0 5 3 9 9 9M12 12c0-5 5-9 9-9-1 5-4 9-9 9"/></svg>
+      Rośliny
+    </button>
+    <button onclick="showScreen('print',this)" id="nav-print">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Druk
+    </button>
+    <button onclick="showScreen('aqua',this)" id="nav-aqua">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 12c0 5.5 4.5 10 10 10s10-4.5 10-10M2 12C2 6.5 6.5 2 12 2s10 4.5 10 10"/><path d="M12 2v20"/></svg>
+      Akwarium
+    </button>
+    <button onclick="showScreen('health',this)" id="nav-health">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Serwis
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL: Dodaj/edytuj roślinę -->
+<div class="overlay" id="modalPlant">
+  <div class="modal">
+    <h2 id="modalPlantTitle">Nowa roślina</h2>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nazwa łacińska *</label>
+        <input type="text" id="fLatin" placeholder="Rotala rotundifolia">
+      </div>
+      <div class="form-group">
+        <label>Polska nazwa</label>
+        <input type="text" id="fPolish" placeholder="Rotala okrągłolistna">
+      </div>
+    </div>
+    <div class="form-row3">
+      <div class="form-group">
+        <label>Stan (szt.)</label>
+        <input type="number" id="fQty" min="0" value="0">
+      </div>
+      <div class="form-group">
+        <label>Nr ewidencyjny (C)</label>
+        <input type="text" id="fRegNo" placeholder="11.22-64">
+      </div>
+      <div class="form-group">
+        <label>Kraj (D)</label>
+        <input type="text" id="fCountry" value="PL">
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
+      <p style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">📋 Dane paszportu (opisy uprawy)</p>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Miejsce sadzenia</label>
+        <select id="fPlacement">
+          <option>Pierwszy plan</option>
+          <option>Drugi plan</option>
+          <option selected>Trzeci plan</option>
+          <option>Pływający</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Wymagania świetlne</label>
+        <select id="fLight">
+          <option>Niskie</option>
+          <option selected>Średnie</option>
+          <option>Wysokie</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tempo wzrostu</label>
+        <select id="fGrowth">
+          <option>Wolne</option>
+          <option selected>Umiarkowane</option>
+          <option>Szybkie</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Trudność uprawy</label>
+        <select id="fDiff">
+          <option selected>Łatwa</option>
+          <option>Średnia</option>
+          <option>Trudna</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Wysokość (cm)</label>
+        <input type="text" id="fHeight" placeholder="do 30 cm">
+      </div>
+      <div class="form-group">
+        <label>CO2</label>
+        <select id="fCo2">
+          <option>Nie jest wymagane</option>
+          <option selected>Wskazane</option>
+          <option>Wymagane</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Zdrowie (status)</label>
+      <select id="fHealth">
+        <option value="good">✅ Dobry</option>
+        <option value="mid">⚠️ Średni</option>
+        <option value="bad">❌ Zły</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Notatki</label>
+      <textarea id="fNotes" placeholder="Uwagi o roślinie…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalPlant')">Anuluj</button>
+      <button class="btn btn-primary" onclick="savePlant()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Ustawienia -->
+<div class="overlay" id="modalSettings">
+  <div class="modal">
+    <h2>⚙️ Ustawienia paszportu</h2>
+    <p style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Pola globalne dla wszystkich paszportów (możesz nadpisać per roślina)</p>
+    <div class="form-group">
+      <label>Pole B — Kod producenta (np. PL – 04/62/10732)</label>
+      <input type="text" id="sCodeB" placeholder="PL – 04/62/10732">
+    </div>
+    <div class="form-group">
+      <label>Pole D — Kraj (domyślnie PL)</label>
+      <input type="text" id="sCodeD" placeholder="PL">
+    </div>
+    <div class="form-group">
+      <label>Stopka naklejki (np. Youtube: Michał Dobrowolski)</label>
+      <input type="text" id="sFooter" placeholder="Youtube: Michał Dobrowolski">
+    </div>
+    <div class="form-group">
+      <label>Imię i nazwisko (do listy/eksportu)</label>
+      <input type="text" id="sName" placeholder="Michał Dobrowolski">
+    </div>
+    <div class="form-group">
+      <label>Adres</label>
+      <input type="text" id="sAddr" placeholder="86-300 Grudziądz, ul. Czerwonodworna 12/12">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalSettings')">Anuluj</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Szczegóły rośliny -->
+<div class="overlay" id="modalDetail">
+  <div class="modal">
+    <h2 id="detailTitle"></h2>
+    <div id="detailContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deletePlantFromDetail()">Usuń</button>
+      <button class="btn btn-outline" onclick="closeModal('modalDetail')">Zamknij</button>
+      <button class="btn btn-primary" onclick="editPlantFromDetail()">Edytuj</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Raport serwisowy -->
+<div class="overlay" id="modalReport">
+  <div class="modal">
+    <h2>📋 Nowy raport serwisowy</h2>
+    <div class="form-group">
+      <label>Tytuł</label>
+      <input type="text" id="rTitle" placeholder="Przycinanie, nawożenie, podmiana wody…">
+    </div>
+    <div class="form-group">
+      <label>Data</label>
+      <input type="date" id="rDate">
+    </div>
+    <div class="form-group">
+      <label>Opis prac</label>
+      <textarea id="rDesc" placeholder="Co zostało zrobione?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Dotyczy roślin (opcjonalnie)</label>
+      <input type="text" id="rPlants" placeholder="Rotala, Ludwigia…">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalReport')">Anuluj</button>
+      <button class="btn btn-primary" onclick="saveReport()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Zaznacz roślinę na zdjęciu -->
+<div class="overlay" id="modalAquaMarker">
+  <div class="modal">
+    <h2>📍 Zaznacz roślinę</h2>
+    <div class="form-group">
+      <label>Roślina</label>
+      <select id="markerPlant"></select>
+    </div>
+    <div class="form-group">
+      <label>Liczba sztuk</label>
+      <input type="number" id="markerQty" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label>Notatka</label>
+      <input type="text" id="markerNote" placeholder="np. lewa ściana">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalAquaMarker')">Anuluj</button>
+      <button class="btn btn-primary" onclick="saveMarker()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'aquapassport_v1';
+let data = {
+  plants: [],
+  settings: {
+    codeB: 'PL – 04/62/10732',
+    codeD: 'PL',
+    footer: 'Youtube: Michał Dobrowolski',
+    name: 'Michał Dobrowolski',
+    addr: '86-300 Grudziądz, ul. Czerwonodworna 12/12'
+  },
+  reports: [],
+  aqua: { imgData: null, markers: [] },
+  selection: {} // plantId -> qty for print
+};
+
+function load() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) data = { ...data, ...JSON.parse(s) };
+  } catch(e) {}
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+let currentScreen = 'plants';
+function showScreen(name, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  btn.classList.add('active');
+  currentScreen = name;
+  if (name === 'plants') renderPlants();
+  if (name === 'print') renderPrintList();
+  if (name === 'aqua') renderAqua();
+  if (name === 'health') renderHealth();
+}
+
+// ─── PLANTS SCREEN ───────────────────────────────────────────────────────────
+function renderStats() {
+  const total = data.plants.length;
+  const totalQty = data.plants.reduce((s,p) => s + (p.qty||0), 0);
+  const low = data.plants.filter(p => (p.qty||0) <= 3 && (p.qty||0) > 0).length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-lbl">Gatunki</div></div>
+    <div class="stat-box"><div class="stat-num">${totalQty}</div><div class="stat-lbl">Sztuki razem</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--warn)">${low}</div><div class="stat-lbl">Mało sztuk</div></div>
+  `;
+}
+
+function renderPlants() {
+  renderStats();
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const list = data.plants.filter(p =>
+    p.latin.toLowerCase().includes(q) ||
+    (p.polish||'').toLowerCase().includes(q)
+  );
+  const el = document.getElementById('plantList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22V12M12 12C12 7 7 3 3 3c0 5 3 9 9 9M12 12c0-5 5-9 9-9-1 5-4 9-9 9"/></svg><p>Brak roślin. Dodaj pierwszą!</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const qty = p.qty || 0;
+    const badgeCls = qty === 0 ? 'badge-empty' : qty <= 3 ? 'badge-low' : 'badge-ok';
+    const badgeTxt = qty === 0 ? 'Brak' : qty <= 3 ? `${qty} szt — mało!` : `${qty} szt`;
+    const hDot = p.health === 'bad' ? 'h-bad' : p.health === 'mid' ? 'h-mid' : 'h-good';
+    return `<div class="card" onclick="openDetail('${p.id}')">
+      <div class="card-row">
+        <div>
+          <span class="health-dot ${hDot}"></span>
+          <span class="plant-name">${p.latin}</span>
+        </div>
+        <span class="badge ${badgeCls}">${badgeTxt}</span>
+      </div>
+      ${p.polish ? `<div class="plant-latin" style="margin-top:3px;padding-left:15px">${p.polish}</div>` : ''}
+      <div style="font-size:0.7rem;color:var(--text3);margin-top:4px;padding-left:15px">${p.regNo||''} · ${p.placement||''} · ${p.light||''}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── ADD / EDIT PLANT ────────────────────────────────────────────────────────
+function openAddPlant() {
+  document.getElementById('editId').value = '';
+  document.getElementById('modalPlantTitle').textContent = 'Nowa roślina';
+  document.getElementById('fLatin').value = '';
+  document.getElementById('fPolish').value = '';
+  document.getElementById('fQty').value = 0;
+  document.getElementById('fRegNo').value = '';
+  document.getElementById('fCountry').value = data.settings.codeD || 'PL';
+  document.getElementById('fPlacement').value = 'Trzeci plan';
+  document.getElementById('fLight').value = 'Średnie';
+  document.getElementById('fGrowth').value = 'Umiarkowane';
+  document.getElementById('fDiff').value = 'Łatwa';
+  document.getElementById('fHeight').value = '';
+  document.getElementById('fCo2').value = 'Wskazane';
+  document.getElementById('fHealth').value = 'good';
+  document.getElementById('fNotes').value = '';
+  openModal('modalPlant');
+}
+
+function openEditPlant(id) {
+  const p = data.plants.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('modalPlantTitle').textContent = 'Edytuj roślinę';
+  document.getElementById('fLatin').value = p.latin || '';
+  document.getElementById('fPolish').value = p.polish || '';
+  document.getElementById('fQty').value = p.qty || 0;
+  document.getElementById('fRegNo').value = p.regNo || '';
+  document.getElementById('fCountry').value = p.country || data.settings.codeD || 'PL';
+  document.getElementById('fPlacement').value = p.placement || 'Trzeci plan';
+  document.getElementById('fLight').value = p.light || 'Średnie';
+  document.getElementById('fGrowth').value = p.growth || 'Umiarkowane';
+  document.getElementById('fDiff').value = p.diff || 'Łatwa';
+  document.getElementById('fHeight').value = p.height || '';
+  document.getElementById('fCo2').value = p.co2 || 'Wskazane';
+  document.getElementById('fHealth').value = p.health || 'good';
+  document.getElementById('fNotes').value = p.notes || '';
+  openModal('modalPlant');
+}
+
+function savePlant() {
+  const latin = document.getElementById('fLatin').value.trim();
+  if (!latin) { showToast('Podaj nazwę łacińską!'); return; }
+  const id = document.getElementById('editId').value || uid();
+  const plant = {
+    id, latin,
+    polish: document.getElementById('fPolish').value.trim(),
+    qty: parseInt(document.getElementById('fQty').value) || 0,
+    regNo: document.getElementById('fRegNo').value.trim(),
+    country: document.getElementById('fCountry').value.trim() || 'PL',
+    placement: document.getElementById('fPlacement').value,
+    light: document.getElementById('fLight').value,
+    growth: document.getElementById('fGrowth').value,
+    diff: document.getElementById('fDiff').value,
+    height: document.getElementById('fHeight').value.trim(),
+    co2: document.getElementById('fCo2').value,
+    health: document.getElementById('fHealth').value,
+    notes: document.getElementById('fNotes').value.trim()
+  };
+  const idx = data.plants.findIndex(p => p.id === id);
+  if (idx >= 0) data.plants[idx] = plant; else data.plants.push(plant);
+  save();
+  closeModal('modalPlant');
+  renderPlants();
+  showToast('Zapisano ✓');
+}
+
+// ─── DETAIL MODAL ────────────────────────────────────────────────────────────
+let detailId = null;
+function openDetail(id) {
+  detailId = id;
+  const p = data.plants.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('detailTitle').textContent = p.latin;
+  const s = data.settings;
+  document.getElementById('detailContent').innerHTML = `
+    ${p.polish ? `<p class="plant-latin" style="margin-bottom:8px;font-size:0.85rem;color:var(--text2)">${p.polish}</p>` : ''}
+    <div class="form-row" style="margin-bottom:10px">
+      <div><span style="font-size:0.72rem;color:var(--text3)">Stan</span><br><b>${p.qty||0} szt.</b></div>
+      <div><span style="font-size:0.72rem;color:var(--text3)">Zdrowie</span><br>
+        <span class="health-dot ${p.health==='bad'?'h-bad':p.health==='mid'?'h-mid':'h-good'}"></span>
+        ${p.health==='bad'?'Zły':p.health==='mid'?'Średni':'Dobry'}
+      </div>
+    </div>
+    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:6px">Podgląd paszportu:</div>
+    <div class="passport-preview">
+      <div class="pp-header">
+        <div class="pp-eu">🇪🇺</div>
+        <div><div class="pp-title">Plant Passport / Paszport roślin</div></div>
+      </div>
+      <div class="pp-body">
+        <div class="pp-left">
+          <p><b>A:</b> ${p.latin}</p>
+          <p><b>B:</b> ${s.codeB||'PL – 04/62/10732'}</p>
+          <p><b>C:</b> ${p.regNo||'—'}</p>
+          <p><b>D:</b> ${p.country||s.codeD||'PL'}</p>
+        </div>
+        <div class="pp-right">
+          <p>Miejsce sadzenia: ${p.placement||'—'}</p>
+          <p>Wymagania świetlne: ${p.light||'—'}</p>
+          <p>Tempo wzrostu: ${p.growth||'—'}</p>
+          <p>Trudność uprawy: ${p.diff||'—'}</p>
+          <p>Wysokość: ${p.height||'—'}</p>
+          <p>Co2: ${p.co2||'—'}</p>
+        </div>
+      </div>
+      <div class="pp-footer">${s.footer||''}</div>
+    </div>
+    ${p.notes ? `<div style="margin-top:10px;font-size:0.8rem;color:var(--text2)"><b>Notatki:</b> ${p.notes}</div>` : ''}
+  `;
+  openModal('modalDetail');
+}
+function editPlantFromDetail() { closeModal('modalDetail'); openEditPlant(detailId); }
+function deletePlantFromDetail() {
+  if (!confirm('Usunąć roślinę?')) return;
+  data.plants = data.plants.filter(p => p.id !== detailId);
+  save(); closeModal('modalDetail'); renderPlants(); showToast('Usunięto');
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+function openSettings() {
+  const s = data.settings;
+  document.getElementById('sCodeB').value = s.codeB || '';
+  document.getElementById('sCodeD').value = s.codeD || 'PL';
+  document.getElementById('sFooter').value = s.footer || '';
+  document.getElementById('sName').value = s.name || '';
+  document.getElementById('sAddr').value = s.addr || '';
+  openModal('modalSettings');
+}
+function saveSettings() {
+  data.settings = {
+    codeB: document.getElementById('sCodeB').value.trim(),
+    codeD: document.getElementById('sCodeD').value.trim() || 'PL',
+    footer: document.getElementById('sFooter').value.trim(),
+    name: document.getElementById('sName').value.trim(),
+    addr: document.getElementById('sAddr').value.trim()
+  };
+  save(); closeModal('modalSettings'); showToast('Ustawienia zapisane ✓');
+}
+
+// ─── PRINT SCREEN ─────────────────────────────────────────────────────────────
+function renderPrintList() {
+  const el = document.getElementById('printList');
+  if (!data.plants.length) {
+    el.innerHTML = '<div class="empty"><p>Brak roślin w bazie</p></div>';
+    return;
+  }
+  el.innerHTML = data.plants.map(p => {
+    const sel = data.selection[p.id] || 0;
+    return `<div class="card check-item" onclick="toggleSelect('${p.id}')">
+      <input type="checkbox" ${sel > 0 ? 'checked' : ''} onclick="event.stopPropagation();toggleSelect('${p.id}')">
+      <div style="flex:1">
+        <div class="plant-name" style="font-size:0.88rem">${p.latin}</div>
+        ${p.polish ? `<div class="plant-latin">${p.polish}</div>` : ''}
+        <div style="font-size:0.7rem;color:var(--text3)">${p.regNo||'brak nr'} · stan: ${p.qty||0} szt.</div>
+      </div>
+      <div onclick="event.stopPropagation()">
+        <input type="number" class="check-qty" min="1" value="${sel||1}"
+          onchange="setQty('${p.id}',this.value)"
+          style="width:54px;padding:5px;font-size:0.82rem">
+        <div style="font-size:0.62rem;color:var(--text3);text-align:center">naklejek</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSelect(id) {
+  if (data.selection[id]) delete data.selection[id];
+  else data.selection[id] = 1;
+  save(); renderPrintList();
+}
+function setQty(id, val) {
+  const n = parseInt(val) || 1;
+  if (data.selection[id] !== undefined) data.selection[id] = n;
+  save();
+}
+function clearSelection() { data.selection = {}; save(); renderPrintList(); showToast('Wybór wyczyszczony'); }
+
+// ─── GENERATE PASSPORT PDF ───────────────────────────────────────────────────
+function generatePassportPDF() {
+  const selected = Object.keys(data.selection).filter(id => data.selection[id] > 0);
+  if (!selected.length) { showToast('Zaznacz rośliny do druku!'); return; }
+
+  // Build all labels as array
+  const labels = [];
+  for (const id of selected) {
+    const p = data.plants.find(x => x.id === id);
+    if (!p) continue;
+    const qty = data.selection[id] || 1;
+    for (let i = 0; i < qty; i++) labels.push(p);
+  }
+
+  const s = data.settings;
+  // A4: 210x297mm, A7: 105x74mm — 2 cols x 4 rows = 8 per page
+  // margins: 5mm top/bottom/sides
+  const A4W = 210, A4H = 297;
+  const COLS = 2, ROWS = 4;
+  const LW = 105, LH = 74;
+  const MARG = 0; // full bleed, rely on printer margins
+
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @page { size: A4; margin: 5mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: white; }
+    .page { width: 200mm; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 0; page-break-after: always; }
+    .label { width: 100mm; height: 71mm; border: 0.5pt solid #aaa; padding: 4mm; overflow: hidden; display: flex; flex-direction: column; }
+    .lbl-header { display: flex; align-items: center; gap: 3mm; border-bottom: 0.5pt solid #aaa; padding-bottom: 2mm; margin-bottom: 2mm; }
+    .eu-stars { font-size: 11pt; }
+    .lbl-title { font-weight: bold; font-size: 8pt; }
+    .lbl-sub { font-size: 6pt; color: #444; }
+    .lbl-body { display: flex; gap: 3mm; flex: 1; }
+    .lbl-left { flex: 1.1; font-size: 7pt; }
+    .lbl-left p { margin-bottom: 1.5mm; line-height: 1.3; }
+    .lbl-right { flex: 1; font-size: 6.5pt; color: #222; }
+    .lbl-right p { margin-bottom: 1.2mm; }
+    .lbl-footer { text-align: center; font-size: 6pt; color: #555; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; margin-top: 1.5mm; }
+  </style></head><body>`;
+
+  const pages = Math.ceil(labels.length / 8);
+  for (let pg = 0; pg < pages; pg++) {
+    html += '<div class="page">';
+    for (let i = 0; i < 8; i++) {
+      const p = labels[pg * 8 + i];
+      if (!p) { html += '<div class="label"></div>'; continue; }
+      html += `<div class="label">
+        <div class="lbl-header">
+          <span class="eu-stars">🇪🇺</span>
+          <div><div class="lbl-title">Plant Passport / Paszport roślin</div></div>
+        </div>
+        <div class="lbl-body">
+          <div class="lbl-left">
+            <p><b>A:</b> ${escHtml(p.latin)}</p>
+            <p><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</p>
+            <p><b>C:</b> ${escHtml(p.regNo||'—')}</p>
+            <p><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</p>
+          </div>
+          <div class="lbl-right">
+            <p>Miejsce sadzenia: ${escHtml(p.placement||'—')}</p>
+            <p>Wymagania świetlne: ${escHtml(p.light||'—')}</p>
+            <p>Tempo wzrostu: ${escHtml(p.growth||'—')}</p>
+            <p>Trudność uprawy: ${escHtml(p.diff||'—')}</p>
+            <p>Wysokość: ${escHtml(p.height||'—')}</p>
+            <p>Co2: ${escHtml(p.co2||'—')}</p>
+          </div>
+        </div>
+        <div class="lbl-footer">${escHtml(s.footer||'')}</div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  html += '</body></html>';
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (w) {
+    w.onload = () => { setTimeout(() => { w.print(); }, 500); };
+  }
+  showToast(`Generuję ${labels.length} naklejek…`);
+}
+
+// ─── EXPORT EXCEL (CSV) ──────────────────────────────────────────────────────
+function exportExcel() {
+  const rows = [['Nazwa łacińska','Polska nazwa','Stan (szt.)','Nr ewidencyjny','Kraj','Miejsce','Światło','Wzrost','Trudność','Wysokość','CO2','Zdrowie','Notatki']];
+  data.plants.forEach(p => {
+    rows.push([p.latin,p.polish||'',p.qty||0,p.regNo||'',p.country||'PL',p.placement||'',p.light||'',p.growth||'',p.diff||'',p.height||'',p.co2||'',p.health||'good',p.notes||'']);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `lista_roslin_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); showToast('Eksport CSV gotowy');
+}
+
+// ─── EXPORT LIST PDF ─────────────────────────────────────────────────────────
+function exportListPDF() {
+  const s = data.settings;
+  const today = new Date().toLocaleDateString('pl-PL');
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @page { size: A4; margin: 20mm 15mm; }
+    body { font-family: Arial, sans-serif; font-size: 9pt; color: #111; }
+    h1 { text-align: center; font-size: 14pt; margin-bottom: 4mm; }
+    table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    th { background: #1a3a2a; color: white; padding: 3mm 2mm; text-align: left; }
+    td { padding: 2mm; border-bottom: 0.5pt solid #ccc; }
+    tr:nth-child(even) td { background: #f5f5f5; }
+    .footer { margin-top: 8mm; font-size: 8pt; color: #555; }
+  </style></head><body>
+  <h1>Lista roślin — ${today}</h1>
+  <table>
+    <thead><tr>
+      <th>Nazwa łacińska</th><th>Pol. nazwa</th><th>Stan</th><th>Nr ewid.</th><th>Kraj</th><th>Trudność</th><th>Światło</th>
+    </tr></thead><tbody>`;
+  data.plants.forEach(p => {
+    html += `<tr><td>${escHtml(p.latin)}</td><td>${escHtml(p.polish||'')}</td><td>${p.qty||0}</td><td>${escHtml(p.regNo||'')}</td><td>${escHtml(p.country||'PL')}</td><td>${escHtml(p.diff||'')}</td><td>${escHtml(p.light||'')}</td></tr>`;
+  });
+  html += `</tbody></table>
+  <div class="footer">${escHtml(s.name||'')} · ${escHtml(s.addr||'')}</div>
+  </body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (w) w.onload = () => setTimeout(() => w.print(), 400);
+}
+
+// ─── AQUARIUM SCREEN ─────────────────────────────────────────────────────────
+let markMode = false;
+let pendingMarkPos = null;
+
+function renderAqua() {
+  const wrap = document.getElementById('aquaWrap');
+  if (!data.aqua.imgData) {
+    wrap.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p>Dodaj zdjęcie akwarium<br>i zaznaczaj rośliny</p></div>`;
+    renderAquaLegend();
+    return;
+  }
+  wrap.innerHTML = `<div class="aqua-img-wrap" id="aquaImgWrap">
+    <img src="${data.aqua.imgData}" id="aquaImg" style="cursor:${markMode?'crosshair':'default'}">
+    ${data.aqua.markers.map((m,i) => {
+      const p = data.plants.find(x => x.id === m.plantId);
+      return `<div class="aqua-marker" style="left:${m.x}%;top:${m.y}%" title="${p?p.latin:''}" onclick="removeMarker(${i})">${i+1}</div>`;
+    }).join('')}
+  </div>`;
+  document.getElementById('aquaImg').addEventListener('click', onAquaClick);
+  renderAquaLegend();
+}
+
+function onAquaClick(e) {
+  if (!markMode) return;
+  const rect = e.target.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+  const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+  pendingMarkPos = { x: parseFloat(x), y: parseFloat(y) };
+  // populate select
+  const sel = document.getElementById('markerPlant');
+  sel.innerHTML = data.plants.map(p => `<option value="${p.id}">${p.latin}</option>`).join('');
+  openModal('modalAquaMarker');
+}
+
+function saveMarker() {
+  if (!pendingMarkPos) return;
+  data.aqua.markers.push({
+    plantId: document.getElementById('markerPlant').value,
+    qty: parseInt(document.getElementById('markerQty').value) || 1,
+    note: document.getElementById('markerNote').value.trim(),
+    x: pendingMarkPos.x, y: pendingMarkPos.y
+  });
+  pendingMarkPos = null;
+  save(); closeModal('modalAquaMarker'); renderAqua();
+}
+function removeMarker(i) {
+  if (!confirm('Usunąć zaznaczenie?')) return;
+  data.aqua.markers.splice(i, 1);
+  save(); renderAqua();
+}
+
+function toggleMarkMode() {
+  markMode = !markMode;
+  document.getElementById('markModeBtn').textContent = markMode ? '✅ Tryb zaznaczania ON' : '📍 Zaznacz roślinę';
+  renderAqua();
+}
+
+function loadAquaImg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    data.aqua.imgData = ev.target.result;
+    save(); renderAqua();
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderAquaLegend() {
+  const el = document.getElementById('aquaLegend');
+  if (!data.aqua.markers.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-size:0.78rem;color:var(--text3);margin-bottom:6px">Zaznaczone rośliny:</div>' +
+    data.aqua.markers.map((m,i) => {
+      const p = data.plants.find(x => x.id === m.plantId);
+      return `<div class="card" style="padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+        <span class="aqua-marker" style="position:static;transform:none;width:20px;height:20px;flex-shrink:0">${i+1}</span>
+        <div style="flex:1">
+          <span style="font-size:0.85rem;font-weight:600">${p?p.latin:'?'}</span>
+          <span style="font-size:0.72rem;color:var(--text3);margin-left:6px">${m.qty} szt. ${m.note?'— '+m.note:''}</span>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+// ─── HEALTH / SERWIS SCREEN ──────────────────────────────────────────────────
+function renderHealth() {
+  // Overview
+  const good = data.plants.filter(p => (p.health||'good') === 'good').length;
+  const mid = data.plants.filter(p => p.health === 'mid').length;
+  const bad = data.plants.filter(p => p.health === 'bad').length;
+  document.getElementById('healthOverview').innerHTML = `
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:8px">Stan zdrowia roślin</div>
+      <div style="display:flex;gap:16px">
+        <div><span class="health-dot h-good"></span><b>${good}</b> <span style="font-size:0.75rem;color:var(--text3)">Dobry</span></div>
+        <div><span class="health-dot h-mid"></span><b>${mid}</b> <span style="font-size:0.75rem;color:var(--text3)">Średni</span></div>
+        <div><span class="health-dot h-bad"></span><b>${bad}</b> <span style="font-size:0.75rem;color:var(--text3)">Zły</span></div>
+      </div>
+      ${bad > 0 ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--danger)">⚠️ Rośliny wymagające uwagi: ${data.plants.filter(p=>p.health==='bad').map(p=>p.latin).join(', ')}</div>` : ''}
+    </div>`;
+
+  const el = document.getElementById('reportList');
+  if (!data.reports.length) {
+    el.innerHTML = '<div class="empty"><p>Brak raportów serwisowych</p></div>';
+    return;
+  }
+  el.innerHTML = data.reports.slice().reverse().map((r,i) => `
+    <div class="report-entry">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="report-date">${r.date||''}</div>
+          <div class="report-title">${escHtml(r.title||'')}</div>
+          ${r.desc ? `<div style="font-size:0.78rem;color:var(--text2);margin-top:4px">${escHtml(r.desc)}</div>` : ''}
+          ${r.plants ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:3px">🌿 ${escHtml(r.plants)}</div>` : ''}
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteReport(${data.reports.length-1-i})">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function openAddReport() {
+  document.getElementById('rTitle').value = '';
+  document.getElementById('rDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rDesc').value = '';
+  document.getElementById('rPlants').value = '';
+  openModal('modalReport');
+}
+function saveReport() {
+  data.reports.push({
+    title: document.getElementById('rTitle').value.trim(),
+    date: document.getElementById('rDate').value,
+    desc: document.getElementById('rDesc').value.trim(),
+    plants: document.getElementById('rPlants').value.trim()
+  });
+  save(); closeModal('modalReport'); renderHealth(); showToast('Raport zapisany ✓');
+}
+function deleteReport(i) {
+  if (!confirm('Usunąć raport?')) return;
+  data.reports.splice(i, 1);
+  save(); renderHealth();
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+load();
+document.getElementById('headerInfo').textContent = `v1.0.0 · ${data.plants.length} roślin`;
+renderPlants();
+
+// Close modals on overlay click
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
