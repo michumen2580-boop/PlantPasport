@@ -197,20 +197,29 @@
 
     <!-- SCREEN: AKWARIUM -->
     <div id="screen-aqua" class="screen">
-      <div class="btn-row" style="margin-bottom:12px">
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('aquaImgInput').click()">
-          📸 Dodaj/zmień zdjęcie
-        </button>
-        <button class="btn btn-outline btn-sm" onclick="toggleMarkMode()" id="markModeBtn">📍 Zaznacz roślinę</button>
+      <div class="tabs" id="aquaTabs">
+        <div class="tab active" onclick="switchAquaTab('current',this)">Aktualne</div>
+        <div class="tab" onclick="switchAquaTab('history',this)">Historia zdjęć</div>
       </div>
-      <input type="file" id="aquaImgInput" accept="image/*" style="display:none" onchange="loadAquaImg(event)">
-      <div id="aquaWrap">
-        <div class="empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          <p>Dodaj zdjęcie akwarium<br>i zaznaczaj rośliny</p>
+      <div id="aquaTabCurrent">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('aquaImgInput').click()">
+            📸 Dodaj nowe zdjęcie
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="toggleMarkMode()" id="markModeBtn">📍 Zaznacz roślinę</button>
         </div>
+        <input type="file" id="aquaImgInput" accept="image/*" style="display:none" onchange="loadAquaImg(event)">
+        <div id="aquaWrap">
+          <div class="empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p>Dodaj zdjęcie akwarium<br>i zaznaczaj rośliny</p>
+          </div>
+        </div>
+        <div id="aquaLegend" style="margin-top:10px"></div>
       </div>
-      <div id="aquaLegend" style="margin-top:10px"></div>
+      <div id="aquaTabHistory" style="display:none">
+        <div id="aquaHistoryList"></div>
+      </div>
     </div>
 
     <!-- SCREEN: ZDROWIE -->
@@ -337,6 +346,23 @@
     <div class="form-group">
       <label>Notatki</label>
       <textarea id="fNotes" placeholder="Uwagi o roślinie…"></textarea>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
+      <p style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">🛒 Historia zakupu</p>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Data zakupu</label>
+        <input type="date" id="fBuyDate">
+      </div>
+      <div class="form-group">
+        <label>Nr paszportu sprzedawcy</label>
+        <input type="text" id="fSellerPassport" placeholder="np. PL-02/15/99999">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Kupiono od (imię/nick/sklep)</label>
+      <input type="text" id="fSeller" placeholder="np. Jan Kowalski, AquaShop">
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modalPlant')">Anuluj</button>
@@ -568,6 +594,9 @@ function openAddPlant() {
   document.getElementById('fCo2').value = 'Wskazane';
   document.getElementById('fHealth').value = 'good';
   document.getElementById('fNotes').value = '';
+  document.getElementById('fBuyDate').value = '';
+  document.getElementById('fSellerPassport').value = '';
+  document.getElementById('fSeller').value = '';
   openModal('modalPlant');
 }
 
@@ -589,6 +618,9 @@ function openEditPlant(id) {
   document.getElementById('fCo2').value = p.co2 || 'Wskazane';
   document.getElementById('fHealth').value = p.health || 'good';
   document.getElementById('fNotes').value = p.notes || '';
+  document.getElementById('fBuyDate').value = p.buyDate || '';
+  document.getElementById('fSellerPassport').value = p.sellerPassport || '';
+  document.getElementById('fSeller').value = p.seller || '';
   openModal('modalPlant');
 }
 
@@ -609,7 +641,10 @@ function savePlant() {
     height: document.getElementById('fHeight').value.trim(),
     co2: document.getElementById('fCo2').value,
     health: document.getElementById('fHealth').value,
-    notes: document.getElementById('fNotes').value.trim()
+    notes: document.getElementById('fNotes').value.trim(),
+    buyDate: document.getElementById('fBuyDate').value,
+    sellerPassport: document.getElementById('fSellerPassport').value.trim(),
+    seller: document.getElementById('fSeller').value.trim()
   };
   const idx = data.plants.findIndex(p => p.id === id);
   if (idx >= 0) data.plants[idx] = plant; else data.plants.push(plant);
@@ -699,9 +734,22 @@ function renderPrintList() {
     el.innerHTML = '<div class="empty"><p>Brak roślin w bazie</p></div>';
     return;
   }
-  el.innerHTML = data.plants.map(p => {
+  const sorted = [...data.plants].sort((a,b) => {
+    const aq = a.qty||0, bq = b.qty||0;
+    if (aq > 0 && bq === 0) return -1;
+    if (aq === 0 && bq > 0) return 1;
+    return a.latin.localeCompare(b.latin);
+  });
+  let lastGroup = null;
+  el.innerHTML = sorted.map(p => {
     const sel = data.selection[p.id] || 0;
-    return `<div class="card check-item" onclick="toggleSelect('${p.id}')">
+    const hasQty = (p.qty||0) > 0;
+    let divider = '';
+    if (lastGroup !== hasQty) {
+      lastGroup = hasQty;
+      divider = `<div style="font-size:0.72rem;font-weight:600;color:${hasQty?'var(--accent)':'var(--text3)'};padding:6px 2px 4px;border-top:1px solid var(--border);margin-top:${lastGroup===false?'4px':'0'}">${hasQty?'✅ Posiadane':'— Brak w kolekcji'}</div>`;
+    }
+    return divider + `<div class="card check-item" onclick="toggleSelect('${p.id}')" style="opacity:${hasQty?1:0.5}">
       <input type="checkbox" ${sel > 0 ? 'checked' : ''} onclick="event.stopPropagation();toggleSelect('${p.id}')">
       <div style="flex:1">
         <div class="plant-name" style="font-size:0.88rem">${p.latin}</div>
@@ -842,10 +890,10 @@ function exportListPDF() {
   <h1>Lista roślin — ${today}</h1>
   <table>
     <thead><tr>
-      <th>Nazwa łacińska</th><th>Pol. nazwa</th><th>Stan</th><th>Nr ewid.</th><th>Kraj</th><th>Trudność</th><th>Światło</th>
+      <th>Nazwa łacińska</th><th>Pol. nazwa</th><th>Stan</th><th>Nr ewid.</th><th>Kraj</th><th>Trudność</th><th>Światło</th><th>Data zakupu</th><th>Sprzedawca</th><th>Nr paszp. sprzedawcy</th>
     </tr></thead><tbody>`;
   data.plants.forEach(p => {
-    html += `<tr><td>${escHtml(p.latin)}</td><td>${escHtml(p.polish||'')}</td><td>${p.qty||0}</td><td>${escHtml(p.regNo||'')}</td><td>${escHtml(p.country||'PL')}</td><td>${escHtml(p.diff||'')}</td><td>${escHtml(p.light||'')}</td></tr>`;
+    html += `<tr><td>${escHtml(p.latin)}</td><td>${escHtml(p.polish||'')}</td><td>${p.qty||0}</td><td>${escHtml(p.regNo||'')}</td><td>${escHtml(p.country||'PL')}</td><td>${escHtml(p.diff||'')}</td><td>${escHtml(p.light||'')}</td><td>${escHtml(p.buyDate||'')}</td><td>${escHtml(p.seller||'')}</td><td>${escHtml(p.sellerPassport||'')}</td></tr>`;
   });
   html += `</tbody></table>
   <div class="footer">${escHtml(s.name||'')} · ${escHtml(s.addr||'')}</div>
@@ -857,6 +905,59 @@ function exportListPDF() {
 }
 
 // ─── AQUARIUM SCREEN ─────────────────────────────────────────────────────────
+function switchAquaTab(tab, el) {
+  document.querySelectorAll('#aquaTabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('aquaTabCurrent').style.display = tab === 'current' ? '' : 'none';
+  document.getElementById('aquaTabHistory').style.display = tab === 'history' ? '' : 'none';
+  if (tab === 'history') renderAquaHistory();
+}
+
+function renderAquaHistory() {
+  const el = document.getElementById('aquaHistoryList');
+  const hist = data.aqua.history || [];
+  if (!hist.length) {
+    el.innerHTML = '<div class="empty"><p>Brak historii zdjęć.<br>Każde nowe zdjęcie trafia tu automatycznie.</p></div>';
+    return;
+  }
+  el.innerHTML = hist.map((h, i) => {
+    const markerList = (h.markers||[]).map((m,mi) => {
+      const p = data.plants.find(x => x.id === m.plantId);
+      return `<span style="font-size:0.68rem;color:var(--text3)">${mi+1}. ${p?p.latin:'?'} (${m.qty||1} szt.)${m.note?' — '+m.note:''}</span>`;
+    }).join('<br>');
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px">📅 ${h.date||'—'}</div>
+      <div class="aqua-img-wrap" style="margin-bottom:8px">
+        <img src="${h.imgData}" style="width:100%;border-radius:6px;display:block">
+        ${(h.markers||[]).map((m,mi) => `<div class="aqua-marker" style="left:${m.x}%;top:${m.y}%;pointer-events:none">${mi+1}</div>`).join('')}
+      </div>
+      ${markerList ? `<div style="margin-top:4px;line-height:1.8">${markerList}</div>` : '<div style="font-size:0.7rem;color:var(--text3)">Brak zaznaczonych roślin</div>'}
+      <div style="margin-top:8px">
+        <button class="btn btn-outline btn-sm" onclick="restoreSnapshot(${i})">↩ Przywróć jako aktualne</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function restoreSnapshot(i) {
+  if (!confirm('Przywrócić to zdjęcie jako aktualne? Obecne zdjęcie trafi do historii.')) return;
+  const snap = data.aqua.history[i];
+  if (data.aqua.imgData) {
+    if (!data.aqua.history) data.aqua.history = [];
+    data.aqua.history.splice(i, 1); // remove the one we're restoring
+    data.aqua.history.unshift({ imgData: data.aqua.imgData, markers: JSON.parse(JSON.stringify(data.aqua.markers)), date: new Date().toLocaleDateString('pl-PL'), timestamp: Date.now() });
+  }
+  data.aqua.imgData = snap.imgData;
+  data.aqua.markers = snap.markers || [];
+  save();
+  switchAquaTab('current', document.querySelector('#aquaTabs .tab'));
+  document.querySelectorAll('#aquaTabs .tab').forEach((t,i) => { if(i===0) t.classList.add('active'); else t.classList.remove('active'); });
+  document.getElementById('aquaTabCurrent').style.display = '';
+  document.getElementById('aquaTabHistory').style.display = 'none';
+  renderAqua();
+  showToast('Przywrócono zdjęcie ✓');
+}
+
 let markMode = false;
 let pendingMarkPos = null;
 
@@ -924,8 +1025,22 @@ function loadAquaImg(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
+    // Archive current before replacing
+    if (data.aqua.imgData) {
+      if (!data.aqua.history) data.aqua.history = [];
+      data.aqua.history.unshift({
+        imgData: data.aqua.imgData,
+        markers: JSON.parse(JSON.stringify(data.aqua.markers)),
+        date: new Date().toLocaleDateString('pl-PL'),
+        timestamp: Date.now()
+      });
+      // Keep max 10 snapshots
+      if (data.aqua.history.length > 10) data.aqua.history = data.aqua.history.slice(0, 10);
+    }
     data.aqua.imgData = ev.target.result;
+    data.aqua.markers = [];
     save(); renderAqua();
+    showToast('Zdjęcie zapisane w historii ✓');
   };
   reader.readAsDataURL(file);
 }
@@ -1019,73 +1134,73 @@ function showToast(msg) {
 
 // ─── PRELOADED PLANT DATABASE (z list 2020/2022/2023 + paszportów) ───────────
 const PRESET_PLANTS = [
-  {latin:'Alternanthera reineckii \'mini\'',polish:'',regNo:'11.22-01',placement:'Drugi plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 20 cm',co2:'Wskazane'},
-  {latin:'Anubias barteri - RATAJ',polish:'',regNo:'11.22-02',placement:'Drugi plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 20 cm',co2:'Nie jest wymagane'},
-  {latin:'Anubias beteri Nana',polish:'Anubias Niski',regNo:'11.22-03',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 10 cm',co2:'Nie jest wymagane'},
-  {latin:'Bacopa caroliniana',polish:'Bakopa karolińska',regNo:'11.22-04',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Bucephalandra',polish:'',regNo:'11.22-05',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 10 cm',co2:'Wskazane'},
-  {latin:'Cabomba caroliniana',polish:'',regNo:'11.22-06',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Średnia',height:'do 60 cm',co2:'Wskazane'},
-  {latin:'Cabomba furcata RED',polish:'',regNo:'11.22-07',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Trudna',height:'do 60 cm',co2:'Wymagane'},
-  {latin:'Cryptocoryne wendtii brown',polish:'Zwartka Wendta brązowa',regNo:'11.22-08',placement:'Drugi plan',light:'Niskie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Nie jest wymagane'},
-  {latin:'Cryptocoryne wendtii green',polish:'',regNo:'11.22-09',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 40 cm',co2:'Nie jest wymagane'},
-  {latin:'Cryptocoryne wendtii \'Mi Oya\'',polish:'',regNo:'11.22-10',placement:'Drugi plan',light:'Niskie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Nie jest wymagane'},
-  {latin:'Didiplis diandra',polish:'Peplis dwupręcikowy',regNo:'11.22-11',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
-  {latin:'Echinodorus Vesuvius',polish:'Żabienica Vesuvius',regNo:'11.22-12',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
-  {latin:'Eleocharis Acikuralis',polish:'Ponikło iglowate',regNo:'11.22-13',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Wskazane'},
-  {latin:'Eleocharis sp. Mini',polish:'',regNo:'11.22-14',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'Eriocaulon Setaceum',polish:'',regNo:'11.22-15',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 30 cm',co2:'Wymagane'},
-  {latin:'Eriocaulon Taiwan',polish:'',regNo:'11.22-16',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 20 cm',co2:'Wymagane'},
-  {latin:'Glossostigma elatinoides Bentham',polish:'',regNo:'11.22-17',placement:'Pierwszy plan',light:'Wysokie',growth:'Szybkie',diff:'Trudna',height:'do 3 cm',co2:'Wymagane'},
-  {latin:'Hemianthus callitrichoides',polish:'Hemiantus niski',regNo:'11.22-18',placement:'Pierwszy plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 2 cm',co2:'Wymagane'},
-  {latin:'Heteranthera zosterifolia',polish:'Heterantera paskowana',regNo:'11.22-19',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Hydrocotyle sp Japan',polish:'',regNo:'11.22-20',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'HYGROPHILA ARAGUAIA',polish:'',regNo:'11.22-21',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
-  {latin:'Hygrophila Corymbosa Compact',polish:'Nadwódka szerokolistna',regNo:'11.22-22',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Hygrophila difformis',polish:'Nadwódka zmienna',regNo:'11.22-23',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Hygrophila polysperma',polish:'',regNo:'11.22-24',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 30 cm',co2:'Wskazane'},
-  {latin:'Hygrophila pinnatifida',polish:'Nadwódka',regNo:'11.22-25',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Wskazane'},
-  {latin:'Lemna Minor',polish:'Rzęsa drobna',regNo:'11.22-26',placement:'Pływający',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 1 cm',co2:'Nie jest wymagane'},
-  {latin:'Limnophila aromatica',polish:'Limnofila pachnąca',regNo:'11.22-27',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Limnophila sessiliflora Blume',polish:'Limnofila bezszypułkowa',regNo:'11.22-28',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Lobelia cardinalis mini',polish:'',regNo:'11.22-29',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 10 cm',co2:'Wskazane'},
-  {latin:'Lotos tygrysi',polish:'Grzebień Egipski',regNo:'11.22-30',placement:'Drugi plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Ludwigia arcuata',polish:'Ludwigia drobna',regNo:'11.22-31',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Ludwigia inclinata \'Curly\'',polish:'Ludwigia tornado',regNo:'11.22-32',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
-  {latin:'Ludwigia Inclinata Pantanal',polish:'',regNo:'11.22-33',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
-  {latin:'LUDWIGIA OVALIS PINK',polish:'',regNo:'11.22-34',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 40 cm',co2:'Wskazane'},
-  {latin:'Ludwigia peruensis',polish:'',regNo:'11.22-35',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Ludwigia repens',polish:'',regNo:'11.22-36',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
-  {latin:'Ludwigia senegalensis guinea',polish:'',regNo:'11.22-37',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Trudna',height:'do 30 cm',co2:'Wskazane'},
-  {latin:'Ludwigia sphaerocarpa pilosa',polish:'',regNo:'11.22-38',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
-  {latin:'Ludwigia Super Mini Red',polish:'',regNo:'11.22-39',placement:'Pierwszy plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 10 cm',co2:'Wymagane'},
-  {latin:'Ludwigia var CUBA',polish:'',regNo:'11.22-40',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Ludwigia White',polish:'',regNo:'11.22-41',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
-  {latin:'Marsilea Crenata',polish:'Marsylia zmiennolistna',regNo:'11.22-42',placement:'Pierwszy plan',light:'Niskie',growth:'Umiarkowane',diff:'Łatwa',height:'do 5 cm',co2:'Nie jest wymagane'},
-  {latin:'Micranthemum \'Monte Carlo\'',polish:'',regNo:'11.22-43',placement:'Pierwszy plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 3 cm',co2:'Wskazane'},
-  {latin:'Micranthemum umbrosum',polish:'Mikrantemum okrągłolistne',regNo:'11.22-44',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 20 cm',co2:'Wskazane'},
-  {latin:'Microsorum Pteropus "Windelov"',polish:'',regNo:'11.22-45',placement:'Drugi plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 25 cm',co2:'Nie jest wymagane'},
-  {latin:'Mikrozorium oskrzydlone',polish:'',regNo:'11.22-46',placement:'Drugi plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 30 cm',co2:'Nie jest wymagane'},
-  {latin:'Moczarka kanadyjska',polish:'',regNo:'11.22-47',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 60 cm',co2:'Nie jest wymagane'},
-  {latin:'Moss Christmas',polish:'',regNo:'11.22-48',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'Moss Flame',polish:'',regNo:'11.22-49',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'Moss Phoenix',polish:'',regNo:'11.22-50',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'Moss Willow',polish:'',regNo:'11.22-51',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'Myriophyllum aquaticum',polish:'Wywłócznik wodny',regNo:'11.22-52',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Myriophyllum Tuberculatum',polish:'Wywłócznik Rdzawy',regNo:'11.22-53',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Nesaea pedicellata golden',polish:'Nesea szypułkowa',regNo:'11.22-54',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
-  {latin:'Persicaria sp. Sao Paulo',polish:'',regNo:'11.22-55',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
-  {latin:'Pogostemon erectus',polish:'',regNo:'11.22-56',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
-  {latin:'Pogostemon helferi',polish:'Gwiazda wodna',regNo:'11.22-57',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 10 cm',co2:'Wskazane'},
-  {latin:'Proserpinaca palustris',polish:'Pełzacz bagienny',regNo:'11.22-58',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
-  {latin:'Riccia fluitans',polish:'Wgłębka wodna',regNo:'11.22-59',placement:'Pływający',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 2 cm',co2:'Wskazane'},
-  {latin:'Rotala Florida',polish:'',regNo:'11.22-60',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 40 cm',co2:'Wskazane'},
-  {latin:'Rotala macrandra',polish:'',regNo:'11.22-61',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
-  {latin:'Rotala Pearl type 1',polish:'',regNo:'11.22-62',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Trudna',height:'do 20 cm',co2:'Wskazane'},
-  {latin:'Rotala rotundifolia \'indica\'',polish:'Rotala okrągłolistna',regNo:'11.22-63',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
-  {latin:'Rotala Wallichii',polish:'',regNo:'11.22-64',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
-  {latin:'Staurogyne repens',polish:'',regNo:'11.22-65',placement:'Pierwszy plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 5 cm',co2:'Wskazane'},
-  {latin:'Tonina Belem',polish:'',regNo:'11.22-66',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 30 cm',co2:'Wymagane'},
-  {latin:'Tonina Fluviatilis',polish:'',regNo:'11.22-67',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 30 cm',co2:'Wymagane'},
+  {latin:'Alternanthera reineckii \'mini\'',polish:'',regNo:'0622-01',placement:'Drugi plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 20 cm',co2:'Wskazane'},
+  {latin:'Anubias barteri - RATAJ',polish:'',regNo:'0622-02',placement:'Drugi plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 20 cm',co2:'Nie jest wymagane'},
+  {latin:'Anubias beteri Nana',polish:'Anubias Niski',regNo:'0622-03',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 10 cm',co2:'Nie jest wymagane'},
+  {latin:'Bacopa caroliniana',polish:'Bakopa karolińska',regNo:'0622-04',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Bucephalandra',polish:'',regNo:'0622-05',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 10 cm',co2:'Wskazane'},
+  {latin:'Cabomba caroliniana',polish:'',regNo:'0622-06',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Średnia',height:'do 60 cm',co2:'Wskazane'},
+  {latin:'Cabomba furcata RED',polish:'',regNo:'0622-07',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Trudna',height:'do 60 cm',co2:'Wymagane'},
+  {latin:'Cryptocoryne wendtii brown',polish:'Zwartka Wendta brązowa',regNo:'0622-08',placement:'Drugi plan',light:'Niskie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Nie jest wymagane'},
+  {latin:'Cryptocoryne wendtii green',polish:'',regNo:'0622-09',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 40 cm',co2:'Nie jest wymagane'},
+  {latin:'Cryptocoryne wendtii \'Mi Oya\'',polish:'',regNo:'0622-10',placement:'Drugi plan',light:'Niskie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Nie jest wymagane'},
+  {latin:'Didiplis diandra',polish:'Peplis dwupręcikowy',regNo:'0622-11',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
+  {latin:'Echinodorus Vesuvius',polish:'Żabienica Vesuvius',regNo:'0622-12',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
+  {latin:'Eleocharis Acikuralis',polish:'Ponikło iglowate',regNo:'0622-13',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Wskazane'},
+  {latin:'Eleocharis sp. Mini',polish:'',regNo:'0622-14',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'Eriocaulon Setaceum',polish:'',regNo:'0622-15',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 30 cm',co2:'Wymagane'},
+  {latin:'Eriocaulon Taiwan',polish:'',regNo:'0622-16',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 20 cm',co2:'Wymagane'},
+  {latin:'Glossostigma elatinoides Bentham',polish:'',regNo:'0622-17',placement:'Pierwszy plan',light:'Wysokie',growth:'Szybkie',diff:'Trudna',height:'do 3 cm',co2:'Wymagane'},
+  {latin:'Hemianthus callitrichoides',polish:'Hemiantus niski',regNo:'0622-18',placement:'Pierwszy plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 2 cm',co2:'Wymagane'},
+  {latin:'Heteranthera zosterifolia',polish:'Heterantera paskowana',regNo:'0622-19',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Hydrocotyle sp Japan',polish:'',regNo:'0622-20',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'HYGROPHILA ARAGUAIA',polish:'',regNo:'0622-21',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
+  {latin:'Hygrophila Corymbosa Compact',polish:'Nadwódka szerokolistna',regNo:'0622-22',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Hygrophila difformis',polish:'Nadwódka zmienna',regNo:'0622-23',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Hygrophila polysperma',polish:'',regNo:'0622-24',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 30 cm',co2:'Wskazane'},
+  {latin:'Hygrophila pinnatifida',polish:'Nadwódka',regNo:'0622-25',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Łatwa',height:'do 20 cm',co2:'Wskazane'},
+  {latin:'Lemna Minor',polish:'Rzęsa drobna',regNo:'0622-26',placement:'Pływający',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 1 cm',co2:'Nie jest wymagane'},
+  {latin:'Limnophila aromatica',polish:'Limnofila pachnąca',regNo:'0622-27',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Limnophila sessiliflora Blume',polish:'Limnofila bezszypułkowa',regNo:'0622-28',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Lobelia cardinalis mini',polish:'',regNo:'0622-29',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 10 cm',co2:'Wskazane'},
+  {latin:'Lotos tygrysi',polish:'Grzebień Egipski',regNo:'0622-30',placement:'Drugi plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Ludwigia arcuata',polish:'Ludwigia drobna',regNo:'0622-31',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Ludwigia inclinata \'Curly\'',polish:'Ludwigia tornado',regNo:'0622-32',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
+  {latin:'Ludwigia Inclinata Pantanal',polish:'',regNo:'0622-33',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
+  {latin:'LUDWIGIA OVALIS PINK',polish:'',regNo:'0622-34',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 40 cm',co2:'Wskazane'},
+  {latin:'Ludwigia peruensis',polish:'',regNo:'0622-35',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Ludwigia repens',polish:'',regNo:'0622-36',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
+  {latin:'Ludwigia senegalensis guinea',polish:'',regNo:'0622-37',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Trudna',height:'do 30 cm',co2:'Wskazane'},
+  {latin:'Ludwigia sphaerocarpa pilosa',polish:'',regNo:'0622-38',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
+  {latin:'Ludwigia Super Mini Red',polish:'',regNo:'0622-39',placement:'Pierwszy plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 10 cm',co2:'Wymagane'},
+  {latin:'Ludwigia var CUBA',polish:'',regNo:'0622-40',placement:'Trzeci plan',light:'Średnie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Ludwigia White',polish:'',regNo:'0622-41',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
+  {latin:'Marsilea Crenata',polish:'Marsylia zmiennolistna',regNo:'0622-42',placement:'Pierwszy plan',light:'Niskie',growth:'Umiarkowane',diff:'Łatwa',height:'do 5 cm',co2:'Nie jest wymagane'},
+  {latin:'Micranthemum \'Monte Carlo\'',polish:'',regNo:'0622-43',placement:'Pierwszy plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 3 cm',co2:'Wskazane'},
+  {latin:'Micranthemum umbrosum',polish:'Mikrantemum okrągłolistne',regNo:'0622-44',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 20 cm',co2:'Wskazane'},
+  {latin:'Microsorum Pteropus "Windelov"',polish:'',regNo:'0622-45',placement:'Drugi plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 25 cm',co2:'Nie jest wymagane'},
+  {latin:'Mikrozorium oskrzydlone',polish:'',regNo:'0622-46',placement:'Drugi plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 30 cm',co2:'Nie jest wymagane'},
+  {latin:'Moczarka kanadyjska',polish:'',regNo:'0622-47',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 60 cm',co2:'Nie jest wymagane'},
+  {latin:'Moss Christmas',polish:'',regNo:'0622-48',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'Moss Flame',polish:'',regNo:'0622-49',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'Moss Phoenix',polish:'',regNo:'0622-50',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'Moss Willow',polish:'',regNo:'0622-51',placement:'Pierwszy plan',light:'Niskie',growth:'Wolne',diff:'Łatwa',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'Myriophyllum aquaticum',polish:'Wywłócznik wodny',regNo:'0622-52',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Łatwa',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Myriophyllum Tuberculatum',polish:'Wywłócznik Rdzawy',regNo:'0622-53',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Nesaea pedicellata golden',polish:'Nesea szypułkowa',regNo:'0622-54',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
+  {latin:'Persicaria sp. Sao Paulo',polish:'',regNo:'0622-55',placement:'Trzeci plan',light:'Wysokie',growth:'Szybkie',diff:'Średnia',height:'do 50 cm',co2:'Wskazane'},
+  {latin:'Pogostemon erectus',polish:'',regNo:'0622-56',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
+  {latin:'Pogostemon helferi',polish:'Gwiazda wodna',regNo:'0622-57',placement:'Pierwszy plan',light:'Średnie',growth:'Umiarkowane',diff:'Średnia',height:'do 10 cm',co2:'Wskazane'},
+  {latin:'Proserpinaca palustris',polish:'Pełzacz bagienny',regNo:'0622-58',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
+  {latin:'Riccia fluitans',polish:'Wgłębka wodna',regNo:'0622-59',placement:'Pływający',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 2 cm',co2:'Wskazane'},
+  {latin:'Rotala Florida',polish:'',regNo:'0622-60',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 40 cm',co2:'Wskazane'},
+  {latin:'Rotala macrandra',polish:'',regNo:'0622-61',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 50 cm',co2:'Wymagane'},
+  {latin:'Rotala Pearl type 1',polish:'',regNo:'0622-62',placement:'Drugi plan',light:'Średnie',growth:'Umiarkowane',diff:'Trudna',height:'do 20 cm',co2:'Wskazane'},
+  {latin:'Rotala rotundifolia \'indica\'',polish:'Rotala okrągłolistna',regNo:'0622-63',placement:'Trzeci plan',light:'Średnie',growth:'Szybkie',diff:'Łatwa',height:'do 40 cm',co2:'Wskazane'},
+  {latin:'Rotala Wallichii',polish:'',regNo:'0622-64',placement:'Trzeci plan',light:'Wysokie',growth:'Umiarkowane',diff:'Trudna',height:'do 40 cm',co2:'Wymagane'},
+  {latin:'Staurogyne repens',polish:'',regNo:'0622-65',placement:'Pierwszy plan',light:'Wysokie',growth:'Umiarkowane',diff:'Średnia',height:'do 5 cm',co2:'Wskazane'},
+  {latin:'Tonina Belem',polish:'',regNo:'0622-66',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 30 cm',co2:'Wymagane'},
+  {latin:'Tonina Fluviatilis',polish:'',regNo:'0622-67',placement:'Trzeci plan',light:'Wysokie',growth:'Wolne',diff:'Trudna',height:'do 30 cm',co2:'Wymagane'},
 ];
 
 function seedDefaultPlants() {
@@ -1120,8 +1235,18 @@ function seedDefaultPlants() {
 // ─── INIT ────────────────────────────────────────────────────────────────────
 load();
 seedDefaultPlants();
-document.getElementById('headerInfo').textContent = `v1.1.0 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.2.0 · ${data.plants.length} roślin`;
 renderPlants();
+
+// Auto-fill regNo placeholder with current month/year format
+(function() {
+  const now = new Date();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const yy = String(now.getFullYear()).slice(2);
+  const prefix = mm + yy + '-';
+  const inp = document.getElementById('fRegNo');
+  if (inp) inp.placeholder = prefix + 'XX (np. ' + prefix + '01)';
+})();
 
 // Close modals on overlay click
 document.querySelectorAll('.overlay').forEach(o => {
