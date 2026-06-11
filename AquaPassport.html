@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#1a3a2a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AquaPassport">
+<link rel="manifest" id="manifestLink">
 <title>AquaPassport</title>
 <style>
   :root {
@@ -136,6 +138,13 @@
 
   /* PRINT PREVIEW indicator */
   .print-info { background: #14532d; border: 1px solid var(--accent2); border-radius: 8px; padding: 10px 12px; font-size: 0.78rem; color: var(--accent); margin-bottom: 12px; }
+
+  /* INSTALL BANNER */
+  #installBanner { display: none; position: fixed; bottom: 64px; left: 12px; right: 12px; background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 14px; z-index: 150; align-items: center; gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+  #installBanner .ib-text { flex: 1; font-size: 0.82rem; color: var(--text); }
+  #installBanner .ib-text strong { color: var(--accent); display: block; font-size: 0.88rem; }
+  #installBanner button { background: var(--accent); color: #0a1a10; border: none; border-radius: 8px; padding: 7px 14px; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+  #installBanner .ib-close { background: none; color: var(--text3); padding: 4px 8px; font-size: 1rem; }
 
   @media print {
     nav, header, .no-print { display: none !important; }
@@ -431,6 +440,17 @@
   </div>
 </div>
 
+<!-- INSTALL BANNER -->
+<div id="installBanner">
+  <span style="font-size:1.6rem">🌿</span>
+  <div class="ib-text">
+    <strong>Zainstaluj AquaPassport</strong>
+    Dodaj do ekranu głównego — działa offline
+  </div>
+  <button onclick="installApp()">Instaluj</button>
+  <button class="ib-close" onclick="document.getElementById('installBanner').style.display='none'">✕</button>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -502,23 +522,36 @@ function renderPlants() {
   el.innerHTML = list.map(p => {
     const qty = p.qty || 0;
     const badgeCls = qty === 0 ? 'badge-empty' : qty <= 3 ? 'badge-low' : 'badge-ok';
-    const badgeTxt = qty === 0 ? 'Brak' : qty <= 3 ? `${qty} szt — mało!` : `${qty} szt`;
+    const badgeTxt = qty === 0 ? 'Brak' : qty <= 3 ? `${qty} — mało!` : `${qty} szt`;
     const hDot = p.health === 'bad' ? 'h-bad' : p.health === 'mid' ? 'h-mid' : 'h-good';
-    return `<div class="card" onclick="openDetail('${p.id}')">
+    return `<div class="card">
       <div class="card-row">
-        <div>
-          <span class="health-dot ${hDot}"></span>
-          <span class="plant-name">${p.latin}</span>
+        <div style="flex:1;min-width:0;cursor:pointer" onclick="openDetail('${p.id}')">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="health-dot ${hDot}"></span>
+            <span class="plant-name" style="font-size:0.88rem">${p.latin}</span>
+          </div>
+          ${p.polish ? `<div class="plant-latin" style="margin-top:2px;padding-left:14px">${p.polish}</div>` : ''}
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:3px;padding-left:14px">${p.regNo||''} · ${p.placement||''}</div>
         </div>
-        <span class="badge ${badgeCls}">${badgeTxt}</span>
+        <div style="display:flex;align-items:center;gap:0;flex-shrink:0;margin-left:8px" onclick="event.stopPropagation()">
+          <button onclick="adjustQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:8px 0 0 8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+          <div class="badge ${badgeCls}" style="border-radius:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);min-width:46px;text-align:center;height:32px;display:flex;align-items:center;justify-content:center;padding:0 4px">${badgeTxt}</div>
+          <button onclick="adjustQty('${p.id}',+1)" style="width:32px;height:32px;border-radius:0 8px 8px 0;border:1px solid var(--border);background:var(--bg);color:var(--accent);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+        </div>
       </div>
-      ${p.polish ? `<div class="plant-latin" style="margin-top:3px;padding-left:15px">${p.polish}</div>` : ''}
-      <div style="font-size:0.7rem;color:var(--text3);margin-top:4px;padding-left:15px">${p.regNo||''} · ${p.placement||''} · ${p.light||''}</div>
     </div>`;
   }).join('');
 }
 
 // ─── ADD / EDIT PLANT ────────────────────────────────────────────────────────
+function adjustQty(id, delta) {
+  const p = data.plants.find(x => x.id === id);
+  if (!p) return;
+  p.qty = Math.max(0, (p.qty || 0) + delta);
+  save();
+  renderPlants();
+}
 function openAddPlant() {
   document.getElementById('editId').value = '';
   document.getElementById('modalPlantTitle').textContent = 'Nowa roślina';
@@ -1093,6 +1126,67 @@ renderPlants();
 document.querySelectorAll('.overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
 });
+
+// ─── PWA MANIFEST (inline) ───────────────────────────────────────────────────
+const manifest = {
+  name: 'AquaPassport',
+  short_name: 'AquaPassport',
+  description: 'Zarządzanie roślinami akwariowymi i paszportami',
+  start_url: './',
+  display: 'standalone',
+  background_color: '#0f1f17',
+  theme_color: '#1a3a2a',
+  orientation: 'portrait',
+  icons: [
+    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" fill="%231a3a2a" rx="32"/><text y="140" x="20" font-size="140">🌿</text></svg>', sizes: '192x192', type: 'image/svg+xml' },
+    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="%231a3a2a" rx="80"/><text y="390" x="30" font-size="400">🌿</text></svg>', sizes: '512x512', type: 'image/svg+xml' }
+  ]
+};
+const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+document.getElementById('manifestLink').href = URL.createObjectURL(manifestBlob);
+
+// ─── SERVICE WORKER (inline) ─────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'aquapassport-v1';
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './AquaPassport.html'])));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k!==CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./'))));
+});`;
+  const swBlob = new Blob([swCode], {type:'text/javascript'});
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, {scope: './'}).catch(() => {});
+}
+
+// ─── INSTALL PROMPT ──────────────────────────────────────────────────────────
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('installBanner').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').style.display = 'none';
+  deferredInstall = null;
+  showToast('Zainstalowano! 🌿');
+});
+function installApp() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    deferredInstall.userChoice.then(() => { deferredInstall = null; });
+  }
+}
+// iOS hint
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone;
+if (isIOS) document.getElementById('installBanner').style.display = 'flex';
+
 </script>
 </body>
 </html>
