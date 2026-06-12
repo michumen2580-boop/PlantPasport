@@ -794,126 +794,42 @@ function generatePassportPDF() {
   }
 
   const s = data.settings;
-  // Arkusz 210×300mm na A4. Każda komórka siatki: 105×50mm.
-  // Treść naklejki wyśrodkowana z marginesem 2mm ze wszystkich stron — bezpieczeństwo druku.
+
+  // Flaga EU — SVG inline z 12 gwiazdami w okręgu (wymóg prawny EU 2017/2313)
+  function euFlag(w,h) {
+    const pts = Array.from({length:12},(_,i)=>{
+      const a=(i*30-90)*Math.PI/180;
+      const cx=w/2+w*0.38*Math.cos(a), cy=h/2+h*0.38*Math.sin(a);
+      const r=w*0.09, ri=w*0.045;
+      const star=Array.from({length:5},(_,j)=>{
+        const ao=(j*72-90)*Math.PI/180, io=((j*72+36)-90)*Math.PI/180;
+        return `${cx+r*Math.cos(ao)},${cy+r*Math.sin(ao)} ${cx+ri*Math.cos(io)},${cy+ri*Math.sin(io)}`;
+      }).join(' ');
+      return `<polygon points="${star}" fill="#FFCC00"/>`;
+    }).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="9mm" height="6mm" style="display:block;flex-shrink:0"><rect width="${w}" height="${h}" fill="#003399"/>${pts}</svg>`;
+  }
+
+  // Layout: A4, siatka 2×6, komórka 105×49.5mm, treść 100×44mm (margines 2.5mm)
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
     @page { size: A4 portrait; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 210mm; font-family: Arial, sans-serif; background: white; }
-
-    /* Siatka: 2 kol × 6 wierszy. Każda komórka = 105×50mm.
-       6×50=300mm > A4(297mm) → ostatni wiersz lekko przycięty przez drukarkę,
-       ale treść jest wyśrodkowana z marginesem 2mm więc nic ważnego nie ucieknie. */
-    .page {
-      width: 210mm;
-      display: grid;
-      grid-template-columns: 105mm 105mm;
-      grid-template-rows: repeat(6, 50mm);
-      page-break-after: always;
-    }
-
-    /* Komórka naklejki — pełna przestrzeń naklejki */
-    .cell {
-      width: 105mm;
-      height: 50mm;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    /* Właściwa treść — z marginesem bezpieczeństwa 2mm */
-    .passport {
-      width: 101mm;
-      height: 46mm;
-      display: flex;
-      flex-direction: column;
-      font-family: Arial, sans-serif;
-    }
-
-    /* Górna część: ramka po lewej + dane po prawej */
-    .passport-top {
-      display: flex;
-      flex: 1;
-      gap: 2.5mm;
-      min-height: 0;
-    }
-
-    /* LEWA — ramka z flagą, tytułem i A/B/C/D */
-    .pp-box {
-      border: 0.6pt solid #000;
-      padding: 1.5mm 2mm;
-      width: 44mm;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .pp-box-header {
-      display: flex;
-      align-items: center;
-      gap: 1.5mm;
-      border-bottom: 0.4pt solid #000;
-      padding-bottom: 1.2mm;
-      margin-bottom: 1.2mm;
-    }
-    .pp-flag {
-      width: 6mm;
-      height: 4mm;
-      flex-shrink: 0;
-      /* EU flag simulacja: niebieski prostokąt z gwiazdkami */
-      background: #003399;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3.5pt;
-      color: #FFD700;
-      letter-spacing: -0.5px;
-      border-radius: 0.3mm;
-    }
-    .pp-box-title {
-      font-weight: bold;
-      font-size: 5.5pt;
-      line-height: 1.25;
-      color: #000;
-    }
-    .pp-abcd {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-around;
-    }
-    .pp-abcd p {
-      font-size: 6pt;
-      line-height: 1.3;
-      color: #000;
-      word-break: break-word;
-    }
-
-    /* PRAWA — dane uprawy */
-    .pp-data {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-around;
-      padding-top: 0.5mm;
-    }
-    .pp-data p {
-      font-size: 6pt;
-      line-height: 1.3;
-      color: #000;
-    }
-
-    /* Stopka */
-    .pp-footer {
-      text-align: center;
-      font-size: 5.5pt;
-      font-weight: bold;
-      color: #000;
-      border-top: 0.4pt solid #000;
-      padding-top: 1mm;
-      margin-top: 1mm;
-    }
+    html, body { width: 210mm; font-family: Arial, Helvetica, sans-serif; background: white; }
+    .page { width: 210mm; display: grid; grid-template-columns: 105mm 105mm; grid-template-rows: repeat(6, 49.5mm); page-break-after: always; }
+    .cell { width: 105mm; height: 49.5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .pp { width: 100mm; height: 44mm; display: flex; flex-direction: column; }
+    .pp-main { display: flex; flex: 1; gap: 2mm; min-height: 0; }
+    /* Ramka lewa — obowiązkowa wg EU 2017/2313 */
+    .pp-left { width: 43mm; flex-shrink: 0; border: 0.5pt solid #000; display: flex; flex-direction: column; padding: 1.2mm 1.5mm 1mm; }
+    .pp-left-hdr { display: flex; align-items: center; gap: 1.5mm; padding-bottom: 1mm; margin-bottom: 1mm; border-bottom: 0.4pt solid #000; }
+    .pp-left-title { font-size: 5.5pt; font-weight: bold; line-height: 1.3; color: #000; }
+    .pp-left-abcd { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+    .pp-left-abcd p { font-size: 6pt; line-height: 1.4; color: #000; word-break: break-word; }
+    /* Prawa strona — dane uprawy */
+    .pp-right { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+    .pp-right p { font-size: 6pt; line-height: 1.4; color: #000; }
+    .pp-footer { text-align: center; font-size: 5.5pt; font-weight: bold; color: #000; border-top: 0.3pt solid #888; padding-top: 0.8mm; margin-top: 0.8mm; }
   </style></head><body>`;
 
   const pages = Math.ceil(labels.length / 12);
@@ -922,39 +838,32 @@ function generatePassportPDF() {
     for (let i = 0; i < 12; i++) {
       const p = labels[pg * 12 + i];
       if (!p) { html += '<div class="cell"></div>'; continue; }
-      const showFooter = (i < 10); // ostatnie 2 bez stopki — mieszczą się w A4
-      html += `<div class="cell">
-        <div class="passport">
-          <div class="passport-top">
-
-            <!-- LEWA: ramka z A/B/C/D -->
-            <div class="pp-box">
-              <div class="pp-box-header">
-                <div class="pp-flag">★★<br>★★</div>
-                <div class="pp-box-title">Plant Passport/<br>Paszport roślin</div>
-              </div>
-              <div class="pp-abcd">
-                <p><b>A:</b> ${escHtml(p.latin)}</p>
-                <p><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</p>
-                <p><b>C:</b> ${escHtml(p.regNo||'—')}</p>
-                <p><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</p>
-              </div>
+      const showFooter = (i < 10);
+      html += `<div class="cell"><div class="pp">
+        <div class="pp-main">
+          <div class="pp-left">
+            <div class="pp-left-hdr">
+              ${euFlag(60,40)}
+              <div class="pp-left-title">Plant Passport/<br>Paszport roślin</div>
             </div>
-
-            <!-- PRAWA: dane uprawy -->
-            <div class="pp-data">
-              <p>Miejsce sadzenia: ${escHtml(p.placement||'—')}</p>
-              <p>Wymagania świetlne: ${escHtml(p.light||'—')}</p>
-              <p>Tempo wzrostu: ${escHtml(p.growth||'—')}</p>
-              <p>Trudność uprawy: ${escHtml(p.diff||'—')}</p>
-              <p>Wysokość: ${escHtml(p.height||'—')}</p>
-              <p>Co2: ${escHtml(p.co2||'—')}</p>
+            <div class="pp-left-abcd">
+              <p><b>A:</b> ${escHtml(p.latin)}</p>
+              <p><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</p>
+              <p><b>C:</b> ${escHtml(p.regNo||'—')}</p>
+              <p><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</p>
             </div>
-
           </div>
-          ${showFooter ? `<div class="pp-footer">${escHtml(s.footer||'')}</div>` : ''}
+          <div class="pp-right">
+            <p>Miejsce sadzenia: ${escHtml(p.placement||'—')}</p>
+            <p>Wymagania świetlne: ${escHtml(p.light||'—')}</p>
+            <p>Tempo wzrostu: ${escHtml(p.growth||'—')}</p>
+            <p>Trudność uprawy: ${escHtml(p.diff||'—')}</p>
+            <p>Wysokość: ${escHtml(p.height||'—')}</p>
+            <p>Co2: ${escHtml(p.co2||'—')}</p>
+          </div>
         </div>
-      </div>`;
+        ${showFooter ? `<div class="pp-footer">${escHtml(s.footer||'')}</div>` : ''}
+      </div></div>`;
     }
     html += '</div>';
   }
@@ -1368,7 +1277,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.2.6 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.2.7 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
