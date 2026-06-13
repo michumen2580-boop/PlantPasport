@@ -795,7 +795,6 @@ function generatePassportPDF() {
 
   const s = data.settings;
 
-  // Flaga EU — SVG, 12 gwiazd w okręgu
   function euFlag() {
     const W=60, H=40;
     const stars = Array.from({length:12},(_,i)=>{
@@ -812,190 +811,67 @@ function generatePassportPDF() {
   }
   const flagSVG = euFlag();
 
-  // MATEMATYKA (zatwierdzona przed kodowaniem):
-  // A4: 210mm × 297mm, marginesy: 0
-  //
-  // KOLUMNY:
-  //   Lewa:  start=0mm,   szerokość=105mm (0–105mm)
-  //   Prawa: start=110mm, szerokość=100mm (110–210mm)
-  //   Odstęp między kolumnami: 5mm (105–110mm)
-  //
-  // WIERSZE:
-  //   Wiersze 1–5: każdy 50mm → 5×50=250mm
-  //   Wiersz 6:    297–250=47mm (skrócony, mieści się)
-  //
-  // TREŚĆ PASZPORTU w komórce (105mm lewa / 100mm prawa, 50mm wys.):
-  //   Ramka EU (A/B/C/D): 40mm szeroka, 35mm wysoka
-  //   Dane uprawy:        40mm szeroka
-  //   Padding komórki:    5mm góra/dół, 5mm lewa strona
-  //   Czcionka:           8.5pt — czytelna
-
-  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>
-    @page { size: 210mm 297mm; margin: 0; }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 210mm;
-      height: 297mm;
-      font-family: Arial, Helvetica, sans-serif;
-      background: white;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    /* Strona — pozycjonowanie absolutne dla pewnej kontroli */
-    .page {
-      position: relative;
-      width: 210mm;
-      height: 297mm;
-      page-break-after: always;
-      overflow: hidden;
-    }
-
-    /* Jedna naklejka — absolutna pozycja */
-    .cell {
-      position: absolute;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 5mm;
-    }
-
-    /* Treść paszportu */
-    .pp {
-      display: flex;
-      flex-direction: row;
-      gap: 3mm;
-      align-items: flex-start;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* Lewa ramka EU — 40×35mm */
-    .pp-box {
-      width: 40mm;
-      height: 35mm;
-      flex-shrink: 0;
-      border: 0.8pt solid #000;
-      display: flex;
-      flex-direction: column;
-      padding: 1.5mm 1.5mm 1mm;
-    }
-    .pp-box-hdr {
-      display: flex;
-      align-items: center;
-      gap: 1.5mm;
-      border-bottom: 0.6pt solid #000;
-      padding-bottom: 1mm;
-      margin-bottom: 1mm;
-    }
-    .pp-box-title {
-      font-size: 7pt;
-      font-weight: bold;
-      line-height: 1.3;
-    }
-    .pp-box-abcd {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-evenly;
-    }
-    .pp-box-abcd p {
-      font-size: 8pt;
-      line-height: 1.4;
-      word-break: break-word;
-    }
-
-    /* Prawa: dane uprawy — 40mm szerokości */
-    .pp-right {
-      width: 40mm;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-evenly;
-      height: 35mm;
-    }
-    .pp-right p {
-      font-size: 8pt;
-      line-height: 1.4;
-    }
-
-    /* Stopka pod treścią */
-    .pp-wrap {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .pp-main {
-      display: flex;
-      flex-direction: row;
-      gap: 3mm;
-      flex: 1;
-    }
-    .pp-footer {
-      font-size: 7pt;
-      font-weight: bold;
-      text-align: center;
-      border-top: 0.4pt solid #666;
-      padding-top: 1mm;
-      margin-top: 1.5mm;
-    }
-  </style></head><body>`;
-
-  // Pozycje kolumn i wierszy
-  const colX = [0, 110]; // mm od lewej: lewa=0, prawa=110
-  const colW = [105, 100]; // szerokość: lewa=105mm, prawa=100mm
-  const rowH = [50, 50, 50, 50, 50, 47]; // 5×50mm + skrócony 47mm
-  // Pozycje Y wierszy
-  const rowY = [0, 50, 100, 150, 200, 250]; // mm od góry
+  // Jedna komórka paszportu
+  function passportCell(p, isLastRow) {
+    if (!p) return '';
+    const showFooter = !isLastRow;
+    return `
+      <div style="display:flex;flex-direction:row;gap:3mm;height:35mm;align-items:flex-start;">
+        <!-- Ramka EU: 40mm × 35mm -->
+        <div style="width:40mm;height:35mm;flex-shrink:0;border:0.7pt solid #000;display:flex;flex-direction:column;padding:1.5mm 1.5mm 1mm;box-sizing:border-box;">
+          <div style="display:flex;align-items:center;gap:1.5mm;border-bottom:0.5pt solid #000;padding-bottom:1mm;margin-bottom:1mm;">
+            ${flagSVG}
+            <div style="font-size:7pt;font-weight:bold;line-height:1.3;">Plant Passport/<br>Paszport roślin</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly;">
+            <p style="font-size:8pt;line-height:1.4;margin:0;word-break:break-word;"><b>A:</b> ${escHtml(p.latin)}</p>
+            <p style="font-size:8pt;line-height:1.4;margin:0;"><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</p>
+            <p style="font-size:8pt;line-height:1.4;margin:0;"><b>C:</b> ${escHtml(p.regNo||'—')}</p>
+            <p style="font-size:8pt;line-height:1.4;margin:0;"><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</p>
+          </div>
+        </div>
+        <!-- Dane uprawy: 40mm szerokości -->
+        <div style="width:40mm;flex-shrink:0;display:flex;flex-direction:column;justify-content:space-evenly;height:35mm;">
+          <p style="font-size:8pt;line-height:1.4;margin:0;">Miejsce sadzenia: ${escHtml(p.placement||'—')}</p>
+          <p style="font-size:8pt;line-height:1.4;margin:0;">Wymagania świetlne: ${escHtml(p.light||'—')}</p>
+          <p style="font-size:8pt;line-height:1.4;margin:0;">Tempo wzrostu: ${escHtml(p.growth||'—')}</p>
+          <p style="font-size:8pt;line-height:1.4;margin:0;">Trudność uprawy: ${escHtml(p.diff||'—')}</p>
+          <p style="font-size:8pt;line-height:1.4;margin:0;">Wysokość: ${escHtml(p.height||'—')}</p>
+          <p style="font-size:8pt;line-height:1.4;margin:0;">Co2: ${escHtml(p.co2||'—')}</p>
+        </div>
+      </div>
+      ${showFooter ? `<div style="font-size:7pt;font-weight:bold;text-align:center;border-top:0.4pt solid #888;padding-top:1mm;margin-top:1mm;">${escHtml(s.footer||'')}</div>` : ''}
+    `;
+  }
 
   const pages = Math.ceil(labels.length / 12);
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @page { size: 210mm 297mm portrait; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 210mm; height: 297mm; font-family: Arial, Helvetica, sans-serif; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { width: 210mm; height: 297mm; page-break-after: always; }
+    table { width: 210mm; height: 297mm; border-collapse: collapse; table-layout: fixed; }
+    /* Wiersze 1-5: dokładnie 50mm. Wiersz 6: wypełnia resztę do końca strony */
+    tr.fixed td { height: 50mm; }
+    tr.last   td { height: auto; } /* auto = reszta strony */
+    td { width: 105mm; vertical-align: middle; padding: 5mm; overflow: hidden; border: 0.2pt solid #ddd; }
+  </style></head><body>`;
+
   for (let pg = 0; pg < pages; pg++) {
-    html += '<div class="page">';
-    for (let i = 0; i < 12; i++) {
-      const row = Math.floor(i / 2);
-      const col = i % 2;
-      const x = colX[col];
-      const y = rowY[row];
-      const w = colW[col];
-      const h = rowH[row];
-      const p = labels[pg * 12 + i];
-      // Padding wewnętrzny: 5mm wszędzie, treść = (w-10) × (h-10)mm
-      const showFooter = (row < 5); // ostatni wiersz bez stopki — za mało miejsca
-      if (!p) {
-        html += `<div class="cell" style="left:${x}mm;top:${y}mm;width:${w}mm;height:${h}mm;"></div>`;
-        continue;
+    html += '<div class="page"><table>';
+    for (let row = 0; row < 6; row++) {
+      const isLastRow = row === 5;
+      const rowClass = isLastRow ? 'last' : 'fixed';
+      html += `<tr class="${rowClass}">`;
+      for (let col = 0; col < 2; col++) {
+        const idx = pg * 12 + row * 2 + col;
+        const p = labels[idx] || null;
+        html += `<td>${passportCell(p, isLastRow)}</td>`;
       }
-      html += `<div class="cell" style="left:${x}mm;top:${y}mm;width:${w}mm;height:${h}mm;">
-        <div class="pp-wrap" style="width:${w-10}mm;height:${h-10}mm;">
-          <div class="pp-main">
-            <div class="pp-box">
-              <div class="pp-box-hdr">
-                ${flagSVG}
-                <div class="pp-box-title">Plant Passport/<br>Paszport roślin</div>
-              </div>
-              <div class="pp-box-abcd">
-                <p><b>A:</b> ${escHtml(p.latin)}</p>
-                <p><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</p>
-                <p><b>C:</b> ${escHtml(p.regNo||'—')}</p>
-                <p><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</p>
-              </div>
-            </div>
-            <div class="pp-right">
-              <p>Miejsce sadzenia: ${escHtml(p.placement||'—')}</p>
-              <p>Wymagania świetlne: ${escHtml(p.light||'—')}</p>
-              <p>Tempo wzrostu: ${escHtml(p.growth||'—')}</p>
-              <p>Trudność uprawy: ${escHtml(p.diff||'—')}</p>
-              <p>Wysokość: ${escHtml(p.height||'—')}</p>
-              <p>Co2: ${escHtml(p.co2||'—')}</p>
-            </div>
-          </div>
-          ${showFooter ? `<div class="pp-footer">${escHtml(s.footer||'')}</div>` : ''}
-        </div>
-      </div>`;
+      html += '</tr>';
     }
-    html += '</div>';
+    html += '</table></div>';
   }
   html += '</body></html>';
 
@@ -1405,7 +1281,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.3.3 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.3.4 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
