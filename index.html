@@ -794,141 +794,110 @@ function generatePassportPDF() {
 
   const s = data.settings;
 
-  // Używamy jsPDF do generowania prawdziwego PDF z dokładnymi wymiarami
-  const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-  script.onload = () => {
-    const { jsPDF } = window.jspdf;
-    // A4 w mm: 210 × 297
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // Flaga EU — SVG inline
+  function euFlag() {
+    const W=54,H=36;
+    const stars=Array.from({length:12},(_,i)=>{
+      const a=(i*30-90)*Math.PI/180;
+      const cx=W/2+W*0.33*Math.cos(a),cy=H/2+H*0.33*Math.sin(a);
+      const r=W*0.09,ri=W*0.042;
+      const pts=Array.from({length:5},(_,j)=>{
+        const ao=(j*72-90)*Math.PI/180,io=((j*72+36)-90)*Math.PI/180;
+        return `${(cx+r*Math.cos(ao)).toFixed(1)},${(cy+r*Math.sin(ao)).toFixed(1)} ${(cx+ri*Math.cos(io)).toFixed(1)},${(cy+ri*Math.sin(io)).toFixed(1)}`;
+      }).join(' ');
+      return `<polygon points="${pts}" fill="#FFCC00"/>`;
+    }).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:14mm;height:9mm;display:block;flex-shrink:0"><rect width="${W}" height="${H}" fill="#003399"/>${stars}</svg>`;
+  }
+  const flag = euFlag();
 
-    const PW = 210, PH = 297;   // strona
-    const CW = 105;              // szerokość komórki (2 × 105 = 210)
-    const ROW_H = 50;            // wysokość wierszy 1–5
-    // Wiersz 6: PH - 5*ROW_H = 297 - 250 = 47mm
-    const ROW6_H = PH - 5 * ROW_H;
+  // LAYOUT — wszystko w mm, CSS używa mm bezpośrednio
+  // A4: 210 × 297mm
+  // Wiersze 1-5: 50mm każdy (5×50=250mm)
+  // Wiersz 6: 297-250=47mm
+  // Kolumny: 2 × 105mm = 210mm
 
-    // Marginesy wewnątrz komórki
-    const PAD = 5;
+  function makeLabel(p, row, col) {
+    const x = col * 105;  // mm od lewej
+    const y = row < 5 ? row * 50 : 250; // mm od góry
+    const h = row < 5 ? 50 : 47;
+    const showFooter = row < 5;
+    return `
+    <div style="
+      position:absolute;
+      left:${x}mm; top:${y}mm;
+      width:105mm; height:${h}mm;
+      overflow:hidden;
+      padding:4mm 4mm 3mm 4mm;
+      box-sizing:border-box;
+    ">
+      <div style="display:flex;flex-direction:row;gap:3mm;height:33mm;">
+        <div style="
+          width:40mm;height:33mm;flex-shrink:0;
+          border:0.6pt solid #000;
+          display:flex;flex-direction:column;
+          padding:1mm 1.5mm;
+          box-sizing:border-box;
+        ">
+          <div style="display:flex;align-items:center;gap:1.5mm;border-bottom:0.5pt solid #000;padding-bottom:1mm;margin-bottom:1mm;">
+            ${flag}
+            <div style="font-size:6.5pt;font-weight:bold;line-height:1.3;font-family:Arial,sans-serif;">Plant Passport/<br>Paszport roślin</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly;">
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>A:</b> ${escHtml(p.latin)}</div>
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</div>
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>C:</b> ${escHtml(p.regNo||'—')}</div>
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</div>
+          </div>
+        </div>
+        <div style="width:50mm;flex-shrink:0;display:flex;flex-direction:column;justify-content:space-evenly;height:33mm;">
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Miejsce sadzenia: ${escHtml(p.placement||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Wymagania świetlne: ${escHtml(p.light||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Tempo wzrostu: ${escHtml(p.growth||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Trudność uprawy: ${escHtml(p.diff||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Wysokość: ${escHtml(p.height||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Co2: ${escHtml(p.co2||'—')}</div>
+        </div>
+      </div>
+      ${showFooter && s.footer ? `<div style="font-size:6.5pt;font-weight:bold;text-align:center;border-top:0.3pt solid #999;margin-top:1mm;padding-top:1mm;font-family:Arial,sans-serif;">${escHtml(s.footer)}</div>` : ''}
+    </div>`;
+  }
 
-    // Ramka EU: 40mm szeroka, 33mm wysoka
-    const BOX_W = 40, BOX_H = 33;
-    // Dane uprawy: 40mm szeroka
-    const DATA_W = 40;
-    const GAP = 3; // odstęp między ramką a danymi
-
-    const totalPages = Math.ceil(labels.length / 12);
-
-    for (let pg = 0; pg < totalPages; pg++) {
-      if (pg > 0) doc.addPage();
-
-      for (let i = 0; i < 12; i++) {
-        const p = labels[pg * 12 + i];
-        if (!p) continue;
-
-        const row = Math.floor(i / 2);
-        const col = i % 2;
-        const rowH = row < 5 ? ROW_H : ROW6_H;
-        const isLastRow = row === 5;
-
-        // Pozycja komórki
-        const cellX = col * CW;
-        const cellY = row < 5 ? row * ROW_H : 5 * ROW_H;
-
-        // Delikatna linia oddzielająca naklejki
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.1);
-        doc.rect(cellX, cellY, CW, rowH);
-
-        // Pozycja treści (z paddingiem)
-        const tx = cellX + PAD;
-        const ty = cellY + PAD;
-
-        // --- RAMKA EU (lewa) ---
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.4);
-        doc.rect(tx, ty, BOX_W, BOX_H);
-
-        // Flaga EU — niebieski prostokąt
-        const flagW = 14, flagH = 9;
-        doc.setFillColor(0, 51, 153);
-        doc.rect(tx + 1.5, ty + 1.5, flagW, flagH, 'F');
-
-        // Gwiazdy EU — 12 punktów w okręgu (uproszczone jako białe kółka)
-        doc.setFillColor(255, 204, 0);
-        const fcx = tx + 1.5 + flagW/2;
-        const fcy = ty + 1.5 + flagH/2;
-        const fr = 3.5;
-        for (let k = 0; k < 12; k++) {
-          const a = (k * 30 - 90) * Math.PI / 180;
-          const sx = fcx + fr * Math.cos(a);
-          const sy = fcy + fr * Math.sin(a);
-          doc.circle(sx, sy, 0.5, 'F');
-        }
-
-        // Tytuł ramki
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('Plant Passport/', tx + 1.5 + flagW + 1.5, ty + 3.5);
-        doc.text('Paszport roślin', tx + 1.5 + flagW + 1.5, ty + 6.5);
-
-        // Linia pod nagłówkiem ramki
-        doc.setDrawColor(0,0,0);
-        doc.setLineWidth(0.3);
-        doc.line(tx, ty + flagH + 3, tx + BOX_W, ty + flagH + 3);
-
-        // A B C D
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        const abcdY = ty + flagH + 5;
-        const lineH = (BOX_H - (flagH + 3) - 2) / 4;
-        const latin = p.latin.length > 22 ? p.latin.substring(0, 22) + '…' : p.latin;
-        doc.setFont('helvetica', 'bold'); doc.text('A:', tx + 1.5, abcdY);
-        doc.setFont('helvetica', 'normal'); doc.text(latin, tx + 5, abcdY, {maxWidth: BOX_W - 6});
-        doc.setFont('helvetica', 'bold'); doc.text('B:', tx + 1.5, abcdY + lineH);
-        doc.setFont('helvetica', 'normal'); doc.text(s.codeB||'PL – 04/62/10732', tx + 5, abcdY + lineH, {maxWidth: BOX_W - 6});
-        doc.setFont('helvetica', 'bold'); doc.text('C:', tx + 1.5, abcdY + lineH*2);
-        doc.setFont('helvetica', 'normal'); doc.text(p.regNo||'—', tx + 5, abcdY + lineH*2);
-        doc.setFont('helvetica', 'bold'); doc.text('D:', tx + 1.5, abcdY + lineH*3);
-        doc.setFont('helvetica', 'normal'); doc.text(p.country||s.codeD||'PL', tx + 5, abcdY + lineH*3);
-
-        // --- DANE UPRAWY (prawa) ---
-        const dx = tx + BOX_W + GAP;
-        const dataLines = [
-          'Miejsce: ' + (p.placement||'—'),
-          'Światło: ' + (p.light||'—'),
-          'Wzrost: ' + (p.growth||'—'),
-          'Trudność: ' + (p.diff||'—'),
-          'Wysokość: ' + (p.height||'—'),
-          'Co2: ' + (p.co2||'—'),
-        ];
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'normal');
-        const dLineH = BOX_H / 6;
-        dataLines.forEach((line, li) => {
-          doc.text(line, dx, ty + 3 + li * dLineH, {maxWidth: DATA_W});
-        });
-
-        // --- STOPKA ---
-        if (!isLastRow && s.footer) {
-          doc.setFontSize(6.5);
-          doc.setFont('helvetica', 'bold');
-          doc.setDrawColor(150,150,150);
-          doc.setLineWidth(0.2);
-          const footerY = cellY + rowH - PAD;
-          doc.line(tx, footerY - 2, tx + CW - PAD*2, footerY - 2);
-          doc.text(s.footer, cellX + CW/2, footerY, {align: 'center'});
-        }
-      }
+  const totalPages = Math.ceil(labels.length / 12);
+  let pages = '';
+  for (let pg = 0; pg < totalPages; pg++) {
+    let cells = '';
+    for (let i = 0; i < 12; i++) {
+      const p = labels[pg * 12 + i];
+      if (!p) continue;
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      cells += makeLabel(p, row, col);
     }
+    pages += `
+    <div style="
+      position:relative;
+      width:210mm; height:297mm;
+      page-break-after:always;
+      overflow:hidden;
+      background:white;
+    ">${cells}</div>`;
+  }
 
-    // Pobierz PDF
-    doc.save('paszporty_roslin.pdf');
-    showToast(`PDF gotowy — ${labels.length} naklejek ✓`);
-  };
-  script.onerror = () => showToast('Błąd ładowania jsPDF');
-  document.head.appendChild(script);
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @page { size: 210mm 297mm; margin: 0 !important; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 210mm; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @media print { body { margin: 0 !important; } }
+  </style>
+  </head><body>${pages}</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (w) { w.onload = () => { setTimeout(() => w.print(), 800); }; }
+  showToast(`Generuję ${labels.length} naklejek…`);
 }
 
 // ─── EXPORT EXCEL (CSV) ──────────────────────────────────────────────────────
@@ -1330,7 +1299,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.3.5 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.3.6 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
