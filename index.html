@@ -655,6 +655,88 @@ function savePlant() {
   showToast('Zapisano ✓');
 }
 
+// ─── BAZA OPISÓW ROŚLIN ──────────────────────────────────────────────────────
+const PLANT_INFO = {
+  'Alternanthera reineckii': { emoji: '🔴', opis: 'Jedna z najpopularniejszych roślin czerwonych w akwarystyce. Pochodzi z Ameryki Południowej. Wymaga intensywnego oświetlenia i nawożenia CO2, by zachować intensywną czerwono-różową barwę liści. Wolno rośnie, ale tworzy efektowne plamy kolorystyczne w tle lub środku akwarium. Idealna do scapes holenderskich.' },
+  'Anubias barteri': { emoji: '🌿', opis: 'Wytrzymała roślina z Afryki Zachodniej, nie wymagająca dużo światła ani CO2. Rośnie bardzo wolno, ale żyje latami. Przyczepia się do skał i korzeni kłączem — nigdy nie sadzić kłącza w podłożu. Odporna na ślimaki i ryby roślinożerne. Idealna dla początkujących.' },
+  'Anubias beteri Nana': { emoji: '🌿', opis: 'Miniaturowa odmiana Anubias barteri, dorastająca do 10 cm. Bardzo wolny wzrost, ale niezniszczalna — znosi słabe światło, brak CO2, szerokie zakresy parametrów wody. Popularna jako roślina pierwszego planu przyczepiana do skał lub korzeni. Może zakwitać pod wodą białymi kwiatostanami.' },
+  'Bacopa caroliniana': { emoji: '💚', opis: 'Łatwa w uprawie roślina łodygowa z Ameryki Północnej. Przy dobrym oświetleniu wydziela przyjemny aromat cytrynowy po dotknięciu. Rośnie pionowo, tworząc gęste kępy tła. Przy niedoborze światła łodygi stają się cienkie i tracą liście. Toleruje słonawe środowisko. Dobra dla początkujących.' },
+  'Bucephalandra': { emoji: '💎', opis: 'Rzadka i cenna roślina z Borneo, rosnąca w strumieniach górskich. Podobna do Anubias — rośnie na skałach i korzeniach, znosi niskie światło. Liście mienią się metalicznym połyskiem w odcieniach zieleni, fioletu i niebieskiego. Wiele odmian różni się kształtem i kolorem liści. Rośnie bardzo wolno, ale jest niezwykle dekoracyjna.' },
+  'Cabomba caroliniana': { emoji: '🌾', opis: 'Delikatna roślina łodygowa z pierzastymi liśćmi, pochodzi z Ameryki Północnej i Południowej. Wymaga dobrego oświetlenia i preferuje miękką wodę. Szybko rośnie, stanowiąc świetne tło w akwarium. Chętnie zjadana przez ślimaki i niektóre ryby. Naturalny filtr biologiczny — efektywnie pochłania azotany.' },
+  'Cabomba furcata RED': { emoji: '🔴', opis: 'Czerwona odmiana Cabomba, wyjątkowo dekoracyjna. Wymaga bardzo intensywnego oświetlenia, CO2 i regularnego nawożenia, by zachować intensywną barwę. Pochodzi z Ameryki Południowej. Trudniejsza w uprawie niż zielona Cabomba, ale oferuje spektakularny efekt wizualny w tylnym planie akwarium.' },
+  'Cryptocoryne wendtii brown': { emoji: '🟤', opis: 'Jedna z najbardziej popularnych kryptokoryn. Pochodzi ze Sri Lanki, rośnie w rzekach o zmiennym poziomie wody. Brązowe, falowane liście tworzą efektowne kępy środkowego planu. Toleruje słabe oświetlenie i brak CO2. Uwaga na chorobę kryptokoryn — przy zmianie warunków liście mogą się rozpuścić, ale roślina odrośnie z kłącza.' },
+  'Cryptocoryne wendtii green': { emoji: '💚', opis: 'Zielona odmiana Cryptocoryne wendtii — jedna z najprostszych roślin akwarystycznych. Pochodzi ze Sri Lanki. Zielone, lekko falowane liście tworzą gęste kępy. Bardzo tolerancyjna na warunki — rośnie przy słabym świetle, bez CO2, w szerokiej gamie parametrów wody. Doskonała dla początkujących akwarystów.' },
+  'Cryptocoryne wendtii \'Mi Oya\'': { emoji: '🌿', opis: 'Rzadka odmiana Cryptocoryne wendtii zbierana z rzeki Mi Oya na Sri Lance. Liście mają brązowo-zielony kolor z charakterystycznym wzorem żyłek. Wolny wzrost, ale bardzo wytrzymała. Odpowiednia do akwariów niskotech bez CO2. Tworzy naturalne kępy w średnim planie.' },
+  'Didiplis diandra': { emoji: '🌿', opis: 'Subtelna roślina łodygowa z Ameryki Północnej. Drobne, wąskie listki tworzą gęste, miękkie kępy przypominające mech. Wymaga dobrego oświetlenia i CO2, by zachować żywą zieleń. Przy niedoborach czerwienieje. Idealna jako akcent w środkowym lub tylnym planie. Wrażliwa na zmiany warunków — wymaga stabilności.' },
+  'Echinodorus Vesuvius': { emoji: '🌀', opis: 'Wyjątkowa roślina z rodziny żabienic — charakterystyczne spiralnie skręcone liście wyróżniają ją spośród innych roślin. Pochodzi z Ameryki Południowej, jest odmianą hodowlaną. Rośnie w średnim tempie, osiąga 30-40 cm. Nie wymaga CO2, dobrze rośnie przy umiarkowanym oświetleniu. Efektowna dekoracja środkowego planu.' },
+  'Eleocharis Acikuralis': { emoji: '🌾', opis: 'Popularna trawa akwarystyczna tworząca gęste dywany w pierwszym planie. Pochodzi z tropikalnych regionów Azji i Australii. Wąskie, iglaste listki wyrastają pionowo, tworząc efekt łąki. Wymaga średniego do wysokiego oświetlenia i CO2 dla gęstego wzrostu. Rozmnażana przez rozłogi — sama się zagęszcza.' },
+  'Eleocharis sp. Mini': { emoji: '🌱', opis: 'Miniaturowa wersja trawy akwarystycznej — idealna do nano-akwariów i tworzenia gęstych dywanów w pierwszym planie. Listki osiągają zaledwie 3-5 cm wysokości. Wymaga dobrego oświetlenia i CO2. Rośnie przez rozłogi tworząc zwarty dywan. Popularna w stylu Iwagumi i scapach naturalistycznych.' },
+  'Eriocaulon Setaceum': { emoji: '🌿', opis: 'Egzotyczna roślina rozettowa z Australii i Azji Południowej. Charakterystyczne rozetki z wąskich, przezroczystych liści tworzą niezwykły efekt wizualny. Wymaga bardzo miękkiej wody, intensywnego oświetlenia i CO2. Trudna w uprawie — dla zaawansowanych akwarystów. Wolno rośnie, ale jest bardzo efektowna w scapach konkursowych.' },
+  'Eriocaulon Taiwan': { emoji: '🌿', opis: 'Odmiana Eriocaulon z Tajwanu, podobna do E. Setaceum, ale nieco łatwiejsza w uprawie. Rozetki z drobnych liści tworzą ciekawe skupiska. Wymaga miękkiej, lekko kwaśnej wody i intensywnego oświetlenia. Niezbędne CO2. Rośnie wolno, ale nagradza cierpliwych akwarystów pięknym, naturalnym wyglądem.' },
+  'Glossostigma elatinoides Bentham': { emoji: '🌱', opis: 'Jedna z najdrobniejszych roślin akwarystycznych — listki osiągają zaledwie 1-2 cm. Pochodzi z Australii i Nowej Zelandii. Tworzy gęste, niskie dywany w pierwszym planie, preferując rozrost poziomy. Wymaga bardzo intensywnego oświetlenia i CO2. Niezwykle popularna w scapach japońskich. Szybko rośnie przy odpowiednich warunkach.' },
+  'Hemianthus callitrichoides': { emoji: '💚', opis: 'Znana jako HC Cuba — jedna z najdrobniejszych roślin akwarystycznych, z miniaturowymi okrągłymi listkami. Pochodzi z Kuby. Tworzy gęste, szmaragdowe dywany w pierwszym planie. Wymaga bardzo intensywnego oświetlenia i stałego doprowadzenia CO2. Wzorowa roślina do scapów konkursowych. Trudna, ale efekt jest spektakularny.' },
+  'Heteranthera zosterifolia': { emoji: '⭐', opis: 'Popularna roślina łodygowa z Ameryki Południowej, znana jako roślina gwiazdkowa ze względu na charakterystyczny układ liści. Szybko rośnie tworząc gęste kępy w tle. Toleruje szeroki zakres parametrów wody. Przy dobrym oświetleniu przyjmuje żółtozielony kolor. Idealna do naturalnego scapingu. Wymaga regularnego przycinania.' },
+  'Hydrocotyle sp Japan': { emoji: '🍀', opis: 'Urocza mała roślina z okrągłymi listkami na długich ogonkach, rosnąca poziomo po podłożu lub dekoracji. Pochodzi z Japonii. Przy silnym oświetleniu rośnie jako dywan pierwszego planu, przy słabszym — pnie się pionowo. Toleruje szeroki zakres warunków. Efektowna, łatwa w uprawie. Popularna w scapach naturalistycznych.' },
+  'HYGROPHILA ARAGUAIA': { emoji: '💚', opis: 'Roślina łodygowa z dorzecza rzeki Araguaia w Brazylii. Drobne, lanceolate liście układają się w charakterystyczne okółki wokół łodygi. Przy intensywnym oświetleniu przyjmuje brązowo-pomarańczowe zabarwienie. Szybko rośnie, jest łatwa w uprawie. Dobra roślina tła dla początkujących i zaawansowanych.' },
+  'Hygrophila Corymbosa Compact': { emoji: '💚', opis: 'Kompaktowa odmiana Hygrophila corymbosa — zwartszy pokrój i mniejszy rozmiar niż forma typowa. Szerokie, zielone liście tworzą efektowne kępy w tylnym planie. Bardzo łatwa w uprawie — toleruje szerokie zakresy parametrów wody i oświetlenia. Szybko rośnie, wymaga regularnego przycinania. Idealna dla początkujących.' },
+  'Hygrophila difformis': { emoji: '🌿', opis: 'Niezwykła roślina zmieniająca kształt liści w zależności od warunków — pod wodą liście są głęboko wcięte i delikatne, nad wodą przyjmują prostą formę. Pochodzi z Indii i Archipelagu Malajskiego. Bardzo szybko rośnie, łatwa w uprawie. Nadaje się na tło akwarium. Dobra roślina dla akwariów roślinnych bez CO2.' },
+  'Hygrophila polysperma': { emoji: '💚', opis: 'Jedna z najprostszych roślin akwarystycznych — rośnie niemal w każdych warunkach. Pochodzi z Azji. Owalne, jasnozielone liście tworzą gęste kępy. Bardzo szybki wzrost — wymaga częstego przycinania. Doskonała dla początkujących lub jako roślina szybkiego startu pochłaniająca nadmiar substancji odżywczych. Toleruje słone środowisko.' },
+  'Hygrophila pinnatifida': { emoji: '🌿', opis: 'Niezwykła Hygrophila z głęboko wciętymi, pierzastymi liśćmi i brązowo-fioletowym kolorem. Pochodzi z Indii. Może rosnąć jako roślina łodygowa lub przyczepiać się do skał i korzeni. Wymaga umiarkowanego oświetlenia i nawożenia. Tworzy naturalne, nieregularne kępy — idealna do scapów naturalnych i dżunglowych.' },
+  'Lemna Minor': { emoji: '🟢', opis: 'Rzęsa drobna — pływająca roślina powierzchniowa znana na całym świecie. Miniaturowe okrągłe listki pływają po powierzchni wody pochłaniając nadmiar azotanów i fosforanów. Naturalny oczyszczacz wody. Przy dobry oświetleniu mnoży się bardzo szybko. Chętnie zjadana przez ryby roślinożerne. Zapewnia cień rybom lubiącym przyciemnione środowisko.' },
+  'Limnophila aromatica': { emoji: '🌸', opis: 'Aromatyczna roślina łodygowa z Azji Południowej — jej liście wydzielają przyjemny aromat po roztarciu. Przy intensywnym oświetleniu górna część rośliny przyjmuje piękne różowo-fioletowe zabarwienie. Wymaga dobrego oświetlenia i CO2. Tworzy efektowne kępy w tylnym planie. Popularna w scapach konkursowych.' },
+  'Limnophila sessiliflora Blume': { emoji: '🌿', opis: 'Azjatycka roślina łodygowa z pierzastymi liśćmi układającymi się w gęste okółki. Bardzo szybki wzrost, łatwa w uprawie — toleruje słabe oświetlenie i brak CO2. Doskonała alternatywa dla Cabomby. Pochodzi z Indii, Japonii i Indonezji. Tworzy gęste, dekoracyjne tło. Dobra roślina dla akwariów bez zaawansowanej techniki.' },
+  'Lobelia cardinalis mini': { emoji: '🌺', opis: 'Miniaturowa odmiana Lobelia cardinalis — karłowa forma z małymi, okrągłymi listkami zielonymi od góry i fioletowymi od spodu. Pochodzi z Ameryki Północnej. Rośnie wolno, tworząc zwarte kępy w pierwszym planie. Wymaga umiarkowanego oświetlenia i CO2 dla optymalnego wzrostu. Efektowny kontrast kolorystyczny w scapach.' },
+  'Lotos tygrysi': { emoji: '🪷', opis: 'Egzotyczna wodna lilia z charakterystycznymi liśćmi w zielono-czerwone cętki — stąd nazwa. Pochodzi z Azji i Indii. Rośnie z cebulki tworząc duże, dekoracyjne liście. Może rozrastać się bardzo silnie i wymagać regularnego usuwania liści. W akwarium stanowi efektowną dekorację centralną lub tylnego planu. Wyższe wymagania świetlne.' },
+  'Ludwigia arcuata': { emoji: '🔴', opis: 'Smukła roślina łodygowa z wąskimi, igłowatymi listkami w kolorze zielonym do intensywnie czerwonego. Pochodzi z Ameryki Północnej. Przy intensywnym oświetleniu i CO2 przyjmuje piękną czerwień. Rośnie szybko, tworząc efektowne czerwone kępy w tylnym planie. Popularna w scapach holenderskich jako akcent kolorystyczny.' },
+  'Ludwigia inclinata \'Curly\'': { emoji: '🌀', opis: 'Wyjątkowa odmiana Ludwigia z charakterystycznie skręconymi, pofalowanymi liśćmi — znana jako Ludwigia tornado. Przy intensywnym oświetleniu i CO2 liście przyjmują piękne pomarańczowo-czerwone zabarwienie. Rośnie umiarkowanie. Wymaga zaawansowanej pielęgnacji. Efektowna roślina dla doświadczonych akwarystów.' },
+  'Ludwigia Inclinata Pantanal': { emoji: '🔴', opis: 'Rzadka odmiana Ludwigia z rozłożystymi, wachlarzowatymi liśćmi w odcieniach pomarańczu i czerwieni. Pochodzi z Pantanalu w Brazylii. Wymaga bardzo intensywnego oświetlenia, CO2 i mikroelementów. Trudna w uprawie, ale efektem są spektakularne kolory. Ceniona przez zaawansowanych akwarystów i na zawodach.' },
+  'LUDWIGIA OVALIS PINK': { emoji: '🌸', opis: 'Rzadka odmiana Ludwigia z owalnymi liśćmi w odcieniach różu i pomarańczu. Pochodzi ze wschodniej Azji. Wymaga umiarkowanego oświetlenia i CO2 dla pięknego koloru. Rośnie umiarkowanie, tworząc eleganckie kępy w tylnym planie. Mniej wymagająca niż inne czerwone Ludwigie, ale równie dekoracyjna.' },
+  'Ludwigia peruensis': { emoji: '🔶', opis: 'Szybko rosnąca Ludwigia z Ameryki Północnej o jaskrawych liściach. Przy dobrych warunkach przyjmuje piękne żółto-pomarańczowe zabarwienie. Łatwiejsza w uprawie niż inne czerwone Ludwigie. Tworzy efektowne kępy w tylnym planie. Odpowiednia dla akwarystów z umiarkowanym doświadczeniem.' },
+  'Ludwigia repens': { emoji: '🔴', opis: 'Jedna z najpopularniejszych czerwonych roślin łodygowych — łatwa w uprawie, szybko rosnąca. Pochodzi z Ameryki Południowej i Środkowej. Przy dobrym oświetleniu liście przyjmują intensywną czerwień. Toleruje szerokie zakresy parametrów wody. Dobra roślina dla początkujących chcących kolor w akwarium. Wymaga regularnego przycinania.' },
+  'Ludwigia senegalensis guinea': { emoji: '🔴', opis: 'Egzotyczna Ludwigia z Afryki Zachodniej z charakterystycznymi siatkowatymi liśćmi. Trudna w uprawie — wymaga bardzo miękkiej wody, intensywnego oświetlenia i CO2. Unikalna struktura liści (widoczne żyłki tworzące wzór kratki) sprawia że jest bardzo poszukiwana przez kolekcjonerów i scaperów.' },
+  'Ludwigia sphaerocarpa pilosa': { emoji: '🔴', opis: 'Rzadka Ludwigia ze włochatymi łodygami i liśćmi — pilosa oznacza włochaty. Wymaga intensywnego oświetlenia i CO2. Liście przyjmują intensywne czerwono-pomarańczowe barwy. Trudna w uprawie, ale unikalna faktura powierzchni liści czyni ją wyjątkową dekoracją. Poszukiwana przez zaawansowanych akwarystów.' },
+  'Ludwigia Super Mini Red': { emoji: '🔴', opis: 'Miniaturowa odmiana Ludwigia o intensywnie czerwonych, drobnych listkach. Idealna do nano-akwariów lub jako roślina pierwszego planu. Wymaga intensywnego oświetlenia, CO2 i regularnego nawożenia mikroelementami. Wolno rośnie, tworząc zwarte czerwone kępy. Wyjątkowo dekoracyjna, ceni się ją za kompaktowy pokrój.' },
+  'Ludwigia var CUBA': { emoji: '🔶', opis: 'Odmiana Ludwigia z Kuby o charakterystycznym pokroju i barwach. Liście przyjmują piękne pomarańczowo-czerwone kolory przy odpowiednim oświetleniu i CO2. Rośnie umiarkowanie, tworząc efektowne kępy tła. Ceniona za unikalny, odmienny wygląd od typowych Ludwigi. Wymaga regularnej pielęgnacji.' },
+  'Ludwigia White': { emoji: '⚪', opis: 'Wyjątkowa odmiana Ludwigia z jasno-kremowymi do białawych liśćmi — niezwykłość w świecie roślin akwarystycznych. Wymaga bardzo intensywnego oświetlenia i CO2. Trudna w uprawie — przy niedoborach wraca do zielonego koloru. Hodowlana odmiana stworzona przez selekcję. Poszukiwana przez kolekcjonerów.' },
+  'Marsilea Crenata': { emoji: '🍀', opis: 'Wodna paproć z charakterystycznymi czterolistnymi liśćmi przypominającymi koniczynę. Pochodzi z Azji. Rośnie na podłożu jako dywan lub wyrasta ponad wodę. Przy niskim oświetleniu liście są małe i leżą na podłożu, przy silnym rosną pionowo. Łatwa w uprawie, nie wymaga CO2. Efektowna dekoracja pierwszego planu.' },
+  'Micranthemum \'Monte Carlo\'': { emoji: '🌱', opis: 'Popularna roślina dywanikowa z okrągłymi, jasnozielonymi listkami. Pochodzi z Argentyny. Łatwiejsza w uprawie niż HC Cuba — mniej wymagająca co do oświetlenia i CO2. Tworzy gęste, szmaragdowe dywany w pierwszym planie. Bardzo popularna w scapach naturalistycznych i Iwagumi. Rośnie przez rozłogi pokrywając podłoże.' },
+  'Micranthemum umbrosum': { emoji: '💚', opis: 'Roślina łodygowa z drobnymi, okrągłymi listkami podobnymi do Monte Carlo, ale rosnąca pionowo. Pochodzi z Ameryki Północnej i Środkowej. Tworzy gęste, jasne kępy w środkowym planie. Umiarkowane wymagania co do oświetlenia i CO2. Łatwa w uprawie, popularna jako lżejszy akcent w tylnym planie akwarium.' },
+  'Microsorum Pteropus "Windelov"': { emoji: '🌿', opis: 'Elegancka odmiana Microsorum pteropus z efektownie rozszczepionymi końcówkami liści — jak koronka. Pochodzi z Azji. Rośnie na skałach i korzeniach, nie w podłożu. Bardzo wolny wzrost, ale niezwykła odporność — znosi słabe oświetlenie, brak CO2, szerokie zakresy parametrów. Długowieczna roślina, piękna przez wiele lat.' },
+  'Mikrozorium oskrzydlone': { emoji: '🌿', opis: 'Microsorum pteropus — klasyczna paproć akwarystyczna z Azji. Ciemnozielone, lancetowate liście wyrastają z kłącza przyczepiającego się do dekoracji. Bardzo wytrzymała — znosi słabe oświetlenie, brak CO2, zaniedbania. Na liściach tworzą się spory, z których wyrastają nowe rośliny. Idealna dla początkujących.' },
+  'Moczarka kanadyjska': { emoji: '🌿', opis: 'Elodea canadensis — klasyczna roślina akwarystyczna znana od pokoleń. Pochodzi z Ameryki Północnej, zadomowiła się w Europie. Bardzo szybki wzrost pochłaniający azotany i fosforany. Doskonała roślina startowa i oczyszczająca wodę. Toleruje niskie temperatury. Chętnie zjadana przez ryby. Nie wymaga CO2 ani specjalnego oświetlenia.' },
+  'Moss Christmas': { emoji: '🌲', opis: 'Vesicularia montagnei — popularny mech akwarystyczny przypominający kształtem gałęzie choinki. Pochodzi z Ameryki Południowej. Przyczepia się do skał, korzeni i siatek tworząc gęste, zielone kobierce. Nie wymaga CO2 ani mocnego oświetlenia. Schronienie dla narybku i krewetek. Łatwy w uprawie, bardzo dekoracyjny.' },
+  'Moss Flame': { emoji: '🔥', opis: 'Taxiphyllum sp. "Flame" — mech z charakterystycznie skręconymi ku górze gałązkami przypominającymi płomienie. Pochodzi z Azji. Tworzy gęste, trójwymiarowe struktury na skałach i korzeniach. Nie wymaga CO2 ani mocnego oświetlenia. Wolny wzrost, ale bardzo dekoracyjny efekt. Popularny w scapach naturalistycznych.' },
+  'Moss Phoenix': { emoji: '🌿', opis: 'Fissidens fontanus — mech akwarystyczny z charakterystyczną strukturą liści w formie piór. Pochodzi z Ameryki Północnej i tropikalnych regionów. Bardzo dekoracyjny, tworzy delikatne, pierzaste struktury. Rośnie wolno, ale jest wyjątkowo piękny. Wymaga średniego oświetlenia, toleruje brak CO2. Schronienie dla krewetek.' },
+  'Moss Willow': { emoji: '🌿', opis: 'Fontinalis antipyretica lub podobny gatunek — mech z długimi, zwisającymi gałązkami. Pochodzi z chłodnych wód całego świata. Tworzy piękne, zwisające struktury przypominające wierzbę. Toleruje niskie temperatury i słabe oświetlenie. Naturalne schronienie dla narybku. Łatwy w uprawie, efektowny w scapach naturalnych.' },
+  'Myriophyllum aquaticum': { emoji: '🌾', opis: 'Wywłócznik wodny z Ameryki Południowej — delikatna roślina z pierzastymi, jasnozielonymi liśćmi. Bardzo szybko rośnie pochłaniając nadmiar substancji odżywczych. Doskonała roślina tła, naturalna biofiltracja. Toleruje szeroki zakres warunków, nie wymaga CO2. Może wyrastać ponad powierzchnię wody. Dobra dla akwariów bez techniki.' },
+  'Myriophyllum Tuberculatum': { emoji: '🔴', opis: 'Rzadki wywłócznik z pierzastymi liśćmi w kolorze czerwono-pomarańczowym. Pochodzi z Azji. Przy intensywnym oświetleniu i CO2 osiąga niezwykłe czerwone zabarwienie. Szybki wzrost. Wymaga regularnego przycinania. Efektowna roślina tła, tworząca piękny kontrast z zielonymi roślinami. Poszukiwana przez doświadczonych akwarystów.' },
+  'Nesaea pedicellata golden': { emoji: '🌟', opis: 'Rzadka i efektowna roślina z Zanzibaru — złote, pomarańczowe liście tworzą niesamowity efekt wizualny. Wymaga bardzo intensywnego oświetlenia, CO2 i bogatego nawożenia mikroelementami. Rośnie umiarkowanie. Ceniona za unikalny złoty kolor niemal niespotykany u innych roślin akwarystycznych. Roślina dla zaawansowanych.' },
+  'Persicaria sp. Sao Paulo': { emoji: '🔴', opis: 'Rzadka roślina łodygowa z okolic Sao Paulo w Brazylii. Liście przyjmują intensywne czerwono-brązowe zabarwienie przy dobrym oświetleniu. Szybki wzrost, wymaga regularnego przycinania. Umiarkowane wymagania — lepsza co do łatwości uprawy niż inne czerwone rośliny. Efektowna w tylnym planie akwarium.' },
+  'Pogostemon erectus': { emoji: '🌾', opis: 'Wyjątkowa roślina łodygowa z Indii z igiełkowatymi, jasnozielonymi liśćmi tworzącymi gęste, cylindryczne pędy. Wymaga intensywnego oświetlenia i CO2. Tworzy niezwykłe, kolumnowe struktury w tylnym planie. Rośnie umiarkowanie. Efektowna i oryginalna — popularna w scapach naturalistycznych i konkursowych.' },
+  'Pogostemon helferi': { emoji: '⭐', opis: 'Znana jako "Downoi" czyli mała gwiazda — pochodzi z Tajlandii. Charakterystyczne karbowane liście układają się w gwiazdkowe rozetki. Rośnie na podłożu w pierwszym planie. Wymaga umiarkowanego oświetlenia i CO2. Wolny wzrost, ale wyjątkowy wygląd. Jedna z najbardziej oryginalnych roślin akwarystycznych. Popularna w scapach.' },
+  'Proserpinaca palustris': { emoji: '🔴', opis: 'Niezwykła roślina zmieniająca kształt liści — nad wodą liście są proste, pod wodą przyjmują głęboko wcięty, pierzasty kształt. Pochodzi z Ameryki Północnej. Przy intensywnym oświetleniu i CO2 liście stają się intensywnie pomarańczowo-czerwone. Trudna w uprawie, ale spektakularna. Popularna w scapach konkursowych.' },
+  'Riccia fluitans': { emoji: '🌿', opis: 'Wgłębka wodna — wątrobowiec (nie roślina naczyniowa) tworzący gęste, jasnozielone dywany. Naturalnie pływa po powierzchni, ale można go przywiązać do siatek lub kamieni. Wymaga dobrego oświetlenia i CO2 dla bujnego wzrostu. Naturalne schronienie dla narybku. Popularna w scapach Iwagumi jako dywan w pierwszym planie.' },
+  'Rotala Florida': { emoji: '🌸', opis: 'Rzadka odmiana Rotala z Florydy — drobne, okrągłe listki tworzą delikatne pędy. Przy intensywnym oświetleniu przyjmuje różowo-pomarańczowy kolor. Umiarkowane wymagania w porównaniu do innych czerwonych Rotali. Tworzy efektowne, delikatne kępy w tylnym planie. Dobra roślina dla akwarystów z doświadczeniem.' },
+  'Rotala macrandra': { emoji: '🔴', opis: 'Królowa czerwonych roślin akwarystycznych — intensywnie czerwone, szerokie liście tworzą spektakularne kępy. Pochodzi z Indii. Wymaga bardzo intensywnego oświetlenia, stałego CO2 i bogatego nawożenia mikroelementami (szczególnie żelazo). Trudna w uprawie, ale oferuje najpiękniejszą czerwień wśród roślin akwarystycznych. Dla zaawansowanych.' },
+  'Rotala Pearl type 1': { emoji: '💚', opis: 'Delikatna odmiana Rotala z Wietnamu z drobnymi, okrągłymi listkami tworzącymi gęste kępy. Przy dobrym oświetleniu przyjmuje perłowy, różowawy kolor — stąd nazwa. Rośnie umiarkowanie, wymaga CO2. Tworzy efektowne, miękkie kępy w środkowym lub tylnym planie. Popularna wśród kolekcjonerów Rotali.' },
+  'Rotala rotundifolia \'indica\'': { emoji: '🌸', opis: 'Jedna z najpopularniejszych Rotali — łatwa w uprawie, szybko rosnąca. Pochodzi z Azji Południowej. Drobne, okrągłe listki tworzą gęste kępy. Przy intensywnym oświetleniu górne części przyjmują różowo-pomarańczowy kolor. Toleruje szeroki zakres warunków. Doskonała dla początkujących chcących kolor w akwarium.' },
+  'Rotala Wallichii': { emoji: '🔴', opis: 'Jedna z najtrudniejszych Rotali — wyjątkowo delikatne, igłowate listki tworzą gęste, czerwone pędy przypominające szyszki. Wymaga bardzo intensywnego oświetlenia, CO2, miękkiej wody i precyzyjnego nawożenia. Trudna w uprawie, ale efekt jest spektakularny. Ceniona przez zaawansowanych akwarystów i na zawodach.' },
+  'Staurogyne repens': { emoji: '💚', opis: 'Kompaktowa roślina z Brazylii tworząca gęste, niskie kępy w pierwszym i środkowym planie. Ciemnozielone, owalne liście tworzą zwarty dywan. Wymaga wysokiego oświetlenia i CO2 dla gęstego wzrostu. Wolno rośnie, ale jest wytrzymała i efektowna. Popularna w scapach naturalistycznych jako alternatywa dla traw dywanikowych.' },
+  'Tonina Belem': { emoji: '🌿', opis: 'Rzadka, egzotyczna roślina z okolic Belem w Brazylii. Delikatne, pierzaste liście tworzą niezwykłe struktury. Wymaga bardzo miękkiej i kwaśnej wody (pH 5-6.5), intensywnego oświetlenia i CO2. Bardzo trudna w uprawie — wymaga precyzyjnej kontroli parametrów wody. Poszukiwana przez kolekcjonerów, efektowna w scapach.' },
+  'Tonina Fluviatilis': { emoji: '🌿', opis: 'Blisko spokrewniona z Tonina Belem, pochodzi z rzek Ameryki Południowej. Tworzy gęste rozetki delikatnych, pierzastych liści. Wymaga bardzo miękkiej wody, intensywnego oświetlenia i CO2. Trudna w uprawie — nie toleruje twardej ani zasadowej wody. Efektowna roślina dla doświadczonych akwarystów z zaawansowaną techniką.' },
+};
+
+function getPlantInfo(latinName) {
+  // Szukamy po kluczach — dopasowanie częściowe
+  for (const [key, info] of Object.entries(PLANT_INFO)) {
+    if (latinName.toLowerCase().includes(key.toLowerCase()) ||
+        key.toLowerCase().includes(latinName.toLowerCase().split(' ').slice(0,2).join(' '))) {
+      return info;
+    }
+  }
+  return null;
+}
+
 // ─── DETAIL MODAL ────────────────────────────────────────────────────────────
 let detailId = null;
 function openDetail(id) {
@@ -663,8 +745,28 @@ function openDetail(id) {
   if (!p) return;
   document.getElementById('detailTitle').textContent = p.latin;
   const s = data.settings;
+  const info = getPlantInfo(p.latin);
+  const googleImgUrl = `https://www.google.com/search?q=${encodeURIComponent(p.latin + ' aquarium plant')}&tbm=isch`;
+  const wikiUrl = `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(p.latin)}`;
+
   document.getElementById('detailContent').innerHTML = `
-    ${p.polish ? `<p class="plant-latin" style="margin-bottom:8px;font-size:0.85rem;color:var(--text2)">${p.polish}</p>` : ''}
+    ${p.polish ? `<p class="plant-latin" style="margin-bottom:6px;font-size:0.85rem;color:var(--text2)">${p.polish}</p>` : ''}
+
+    ${info ? `
+    <div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:10px;border:1px solid var(--border)">
+      <div style="font-size:1.3rem;margin-bottom:4px">${info.emoji}</div>
+      <p style="font-size:0.8rem;color:var(--text2);line-height:1.5">${info.opis}</p>
+    </div>` : ''}
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <a href="${googleImgUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-size:0.78rem;text-decoration:none;font-weight:600">
+        📸 Zdjęcia Google
+      </a>
+      <a href="${wikiUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:0.78rem;text-decoration:none">
+        📖 Wikipedia
+      </a>
+    </div>
+
     <div class="form-row" style="margin-bottom:10px">
       <div><span style="font-size:0.72rem;color:var(--text3)">Stan</span><br><b>${p.qty||0} szt.</b></div>
       <div><span style="font-size:0.72rem;color:var(--text3)">Zdrowie</span><br>
@@ -696,7 +798,14 @@ function openDetail(id) {
       </div>
       <div class="pp-footer">${s.footer||''}</div>
     </div>
-    ${p.notes ? `<div style="margin-top:10px;font-size:0.8rem;color:var(--text2)"><b>Notatki:</b> ${p.notes}</div>` : ''}
+    ${p.buyDate||p.seller||p.sellerPassport ? `
+    <div style="margin-top:10px;font-size:0.78rem;color:var(--text2);background:var(--bg);border-radius:8px;padding:8px 10px;border:1px solid var(--border)">
+      🛒 <b>Zakup:</b>
+      ${p.buyDate ? `<span style="margin-left:6px">📅 ${p.buyDate}</span>` : ''}
+      ${p.seller ? `<span style="margin-left:6px">👤 ${escHtml(p.seller)}</span>` : ''}
+      ${p.sellerPassport ? `<span style="margin-left:6px">📋 ${escHtml(p.sellerPassport)}</span>` : ''}
+    </div>` : ''}
+    ${p.notes ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--text2)"><b>Notatki:</b> ${escHtml(p.notes)}</div>` : ''}
   `;
   openModal('modalDetail');
 }
@@ -1300,7 +1409,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.3.7 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.4.0 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
