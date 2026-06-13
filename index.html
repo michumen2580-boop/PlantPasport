@@ -818,15 +818,16 @@ function generatePassportPDF() {
   // Kolumny: 2 × 105mm = 210mm
 
   function makeLabel(p, row, col) {
-    const x = col * 105;  // mm od lewej
-    const y = row < 5 ? row * 50 : 250; // mm od góry
+    const x = col === 0 ? 0 : 110;  // lewa=0mm, prawa=110mm
+    const y = row < 5 ? row * 50 : 250;
     const h = row < 5 ? 50 : 47;
+    const w = col === 0 ? 105 : 100; // lewa=105mm, prawa=100mm (210-110=100)
     const showFooter = row < 5;
     return `
     <div style="
       position:absolute;
       left:${x}mm; top:${y}mm;
-      width:105mm; height:${h}mm;
+      width:${w}mm; height:${h}mm;
       overflow:hidden;
       padding:4mm 4mm 3mm 4mm;
       box-sizing:border-box;
@@ -1299,7 +1300,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.3.6 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.3.7 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
