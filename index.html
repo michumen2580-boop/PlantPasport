@@ -1098,22 +1098,39 @@ function exportListPDF() {
     body { font-family: Arial, sans-serif; font-size: 7.5pt; color: #111; }
     h1 { text-align: center; font-size: 11pt; margin-bottom: 3mm; font-weight: bold; }
     .subtitle { text-align:center; font-size:7pt; color:#555; margin-bottom:3mm; }
-    table { width: 100%; border-collapse: collapse; font-size: 7pt; }
-    th { background: #1a3a2a; color: white; padding: 1.5mm 1.5mm; text-align: left; font-size: 7pt; white-space: nowrap; }
-    td { padding: 1mm 1.5mm; border-bottom: 0.3pt solid #ddd; vertical-align: top; line-height: 1.3; }
+    table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: fixed; }
+    th { background: #1a3a2a; color: white; padding: 1.5mm 1mm; text-align: left; font-size: 6.5pt; overflow:hidden; }
+    td { padding: 1mm 1mm; border-bottom: 0.3pt solid #ddd; vertical-align: top; line-height: 1.3; overflow:hidden; }
     tr:nth-child(even) td { background: #f7f7f7; }
     .num { text-align: center; }
+    .nowrap { white-space: nowrap; }
     .footer { margin-top: 5mm; font-size: 6.5pt; color: #777; border-top: 0.5pt solid #ccc; padding-top: 2mm; }
+    col.c1  { width: 6mm; }
+    col.c2  { width: 38mm; }
+    col.c3  { width: 22mm; }
+    col.c4  { width: 7mm; }
+    col.c5  { width: 14mm; }
+    col.c6  { width: 13mm; }
+    col.c7  { width: 13mm; }
+    col.c8  { width: 15mm; }
+    col.c9  { width: 16mm; }
+    col.c10 { width: 17mm; }
+    col.c11 { width: 17mm; }
   </style></head><body>
   <h1>🌿 Lista roślin akwarystycznych</h1>
   <div class="subtitle">${s.name||''} · ${s.addr||''} · ${today}</div>
   <table>
+    <colgroup>
+      <col class="c1"><col class="c2"><col class="c3"><col class="c4">
+      <col class="c5"><col class="c6"><col class="c7"><col class="c8">
+      <col class="c9"><col class="c10"><col class="c11">
+    </colgroup>
     <thead><tr>
-      <th>#</th>
+      <th class="num">#</th>
       <th>Nazwa łacińska</th>
       <th>Polska nazwa</th>
       <th class="num">Stan</th>
-      <th>Nr ewid.</th>
+      <th class="nowrap">Nr ewid.</th>
       <th>Trudność</th>
       <th>Światło</th>
       <th>CO2</th>
@@ -1130,12 +1147,12 @@ function exportListPDF() {
       <td><b>${escHtml(p.latin)}</b></td>
       <td>${escHtml(p.polish||'')}</td>
       <td class="num"><b>${p.qty||0}</b></td>
-      <td>${escHtml(p.regNo||'')}</td>
+      <td class="nowrap">${escHtml(p.regNo||'')}</td>
       <td>${escHtml(p.diff||'')}</td>
       <td>${escHtml(p.light||'')}</td>
       <td>${escHtml(p.co2||'')}</td>
       <td>${escHtml(p.placement||'')}</td>
-      <td>${escHtml(p.buyDate||'')}</td>
+      <td class="nowrap">${escHtml(p.buyDate||'')}</td>
       <td>${escHtml(p.seller||'')}</td>
     </tr>`;
   });
@@ -1586,7 +1603,7 @@ Odpowiedz po polsku, konkretnie i praktycznie. Format:
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.5.1 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.5.2 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
