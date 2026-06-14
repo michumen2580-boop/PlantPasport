@@ -981,12 +981,12 @@ function generatePassportPDF() {
     let rows = '';
     for (let row = 0; row < 6; row++) {
       const isLast = row === 5;
-      const heightStyle = isLast ? '' : 'height:53mm;';
+      const heightStyle = isLast ? '' : 'height:52mm;';
       const p0 = labels[pg * 12 + row * 2 + 0] || null;
       const p1 = labels[pg * 12 + row * 2 + 1] || null;
       rows += `<tr>
         <td style="${heightStyle}width:105mm;padding:4mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${isLast ? cellContentNoFooter(p0) : cellContent(p0)}</td>
-        <td style="${heightStyle}width:105mm;padding:4mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;padding-left:9mm;">${isLast ? cellContentNoFooter(p1) : cellContent(p1)}</td>
+        <td style="${heightStyle}width:105mm;padding:3mm 4mm 3mm 9mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${isLast ? cellContentNoFooter(p1) : cellContent(p1)}</td>
       </tr>`;
     }
     allPages += `
@@ -1412,7 +1412,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.4.5 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.4.6 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
