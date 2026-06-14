@@ -903,6 +903,99 @@ function generatePassportPDF() {
 
   const s = data.settings;
 
+  function euFlag() {
+    const W=54,H=36;
+    const stars=Array.from({length:12},(_,i)=>{
+      const a=(i*30-90)*Math.PI/180;
+      const cx=W/2+W*0.33*Math.cos(a),cy=H/2+H*0.33*Math.sin(a);
+      const r=W*0.09,ri=W*0.042;
+      const pts=Array.from({length:5},(_,j)=>{
+        const ao=(j*72-90)*Math.PI/180,io=((j*72+36)-90)*Math.PI/180;
+        return `${(cx+r*Math.cos(ao)).toFixed(1)},${(cy+r*Math.sin(ao)).toFixed(1)} ${(cx+ri*Math.cos(io)).toFixed(1)},${(cy+ri*Math.sin(io)).toFixed(1)}`;
+      }).join(' ');
+      return `<polygon points="${pts}" fill="#FFCC00"/>`;
+    }).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:14mm;height:9mm;display:block;flex-shrink:0"><rect width="${W}" height="${H}" fill="#003399"/>${stars}</svg>`;
+  }
+  const flag = euFlag();
+
+  function cellContent(p) {
+    if (!p) return '';
+    return `
+      <div style="display:flex;flex-direction:row;gap:3mm;align-items:flex-start;height:33mm;">
+        <div style="width:40mm;height:33mm;flex-shrink:0;border:0.6pt solid #000;display:flex;flex-direction:column;padding:1mm 1.5mm;box-sizing:border-box;">
+          <div style="display:flex;align-items:center;gap:1.5mm;border-bottom:0.5pt solid #000;padding-bottom:1mm;margin-bottom:1mm;">
+            ${flag}
+            <div style="font-size:6.5pt;font-weight:bold;line-height:1.3;font-family:Arial,sans-serif;">Plant Passport/<br>Paszport roślin</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly;">
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>A:</b> ${escHtml(p.latin)}</div>
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>B:</b> ${escHtml(s.codeB||'PL – 04/62/10732')}</div>
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>C:</b> ${escHtml(p.regNo||'—')}</div>
+            <div style="font-size:7.5pt;line-height:1.3;font-family:Arial,sans-serif;"><b>D:</b> ${escHtml(p.country||s.codeD||'PL')}</div>
+          </div>
+        </div>
+        <div style="width:50mm;flex-shrink:0;display:flex;flex-direction:column;justify-content:space-evenly;height:33mm;">
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Miejsce sadzenia: ${escHtml(p.placement||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Wymagania świetlne: ${escHtml(p.light||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Tempo wzrostu: ${escHtml(p.growth||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Trudność uprawy: ${escHtml(p.diff||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Wysokość: ${escHtml(p.height||'—')}</div>
+          <div style="font-size:7.5pt;line-height:1.35;font-family:Arial,sans-serif;">Co2: ${escHtml(p.co2||'—')}</div>
+        </div>
+      </div>
+      ${s.footer ? `<div style="font-size:6.5pt;font-weight:bold;text-align:center;border-top:0.3pt solid #999;margin-top:1.5mm;padding-top:1mm;font-family:Arial,sans-serif;">${escHtml(s.footer)}</div>` : ''}`;
+  }
+
+  const totalPages = Math.ceil(labels.length / 12);
+  let allPages = '';
+
+  for (let pg = 0; pg < totalPages; pg++) {
+    let rows = '';
+    for (let row = 0; row < 6; row++) {
+      const isLast = row === 5;
+      const heightStyle = isLast ? '' : 'height:54mm;';
+      const p0 = labels[pg * 12 + row * 2 + 0] || null;
+      const p1 = labels[pg * 12 + row * 2 + 1] || null;
+      rows += `<tr>
+        <td style="${heightStyle}width:105mm;padding:4mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${cellContent(p0)}</td>
+        <td style="${heightStyle}width:105mm;padding:4mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;padding-left:9mm;">${cellContent(p1)}</td>
+      </tr>`;
+    }
+    allPages += `
+    <div style="page-break-after:always;">
+      <table style="width:210mm;height:297mm;border-collapse:collapse;table-layout:fixed;">
+        ${rows}
+      </table>
+    </div>`;
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @page { size: A4 portrait; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @media print { html, body { margin: 0 !important; padding: 0 !important; } }
+  </style>
+  </head><body>${allPages}</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (w) { w.onload = () => { setTimeout(() => w.print(), 800); }; }
+  showToast(`Generuję ${labels.length} naklejek…`);
+}
+
+  const labels = [];
+  for (const id of selected) {
+    const p = data.plants.find(x => x.id === id);
+    if (!p) continue;
+    const qty = data.selection[id] || 1;
+    for (let i = 0; i < qty; i++) labels.push(p);
+  }
+
+  const s = data.settings;
+
   // Flaga EU — SVG inline
   function euFlag() {
     const W=54,H=36;
@@ -1414,7 +1507,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.4.1 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.4.2 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
