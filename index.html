@@ -157,6 +157,7 @@
   <header>
     <span style="font-size:1.4rem">🌿</span>
     <h1>AquaPassport</h1>
+    <button onclick="openModal('modalAI')" style="background:none;border:none;color:var(--accent);font-size:1.2rem;cursor:pointer;padding:4px" title="Identyfikacja braków AI">🔬</button>
     <span class="ver" id="headerInfo"></span>
   </header>
 
@@ -397,6 +398,28 @@
       <label>Adres</label>
       <input type="text" id="sAddr" placeholder="86-300 Grudziądz, ul. Czerwonodworna 12/12">
     </div>
+    <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
+      <p style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">🖨️ Ustawienia wydruku naklejek</p>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Liczba wierszy na stronie</label>
+        <select id="sPrintRows">
+          <option value="4">4 wiersze</option>
+          <option value="5">5 wierszy</option>
+          <option value="6" selected>6 wierszy</option>
+          <option value="7">7 wierszy</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Wysokość wiersza (mm)</label>
+        <input type="number" id="sPrintRowH" min="30" max="80" value="52" placeholder="52">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Klucz API Gemini (do identyfikacji braków AI)</label>
+      <input type="text" id="sGeminiKey" placeholder="Klucz z aistudio.google.com">
+    </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modalSettings')">Anuluj</button>
       <button class="btn btn-primary" onclick="saveSettings()">Zapisz</button>
@@ -404,7 +427,33 @@
   </div>
 </div>
 
-<!-- MODAL: Szczegóły rośliny -->
+<!-- MODAL: Identyfikacja braków AI -->
+<div class="overlay" id="modalAI">
+  <div class="modal">
+    <h2>🔬 Identyfikacja braków i agrofagów</h2>
+    <p style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Zrób zdjęcie chorej rośliny — AI przeanalizuje objawy i poda możliwe przyczyny oraz rozwiązania.</p>
+    <div class="form-group">
+      <label>Zdjęcie rośliny</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('aiImgInput').click()">📸 Aparat / Galeria</button>
+        <input type="file" id="aiImgInput" accept="image/*" style="display:none" onchange="loadAIImage(event)">
+      </div>
+      <div id="aiImgPreview" style="margin-top:8px;display:none">
+        <img id="aiImgEl" style="max-width:100%;border-radius:8px;border:1px solid var(--border)">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Opis objawów (opcjonalnie)</label>
+      <textarea id="aiSymptoms" placeholder="np. żółknące liście, brązowe plamy, dziury w liściach…" style="height:60px"></textarea>
+    </div>
+    <div id="aiResult" style="display:none;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border);margin-top:10px;font-size:0.82rem;color:var(--text2);line-height:1.6"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalAI')">Zamknij</button>
+      <button class="btn btn-primary" onclick="analyzeDeficiency()">🔬 Analizuj</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modalDetail">
   <div class="modal">
     <h2 id="detailTitle"></h2>
@@ -824,6 +873,9 @@ function openSettings() {
   document.getElementById('sFooter').value = s.footer || '';
   document.getElementById('sName').value = s.name || '';
   document.getElementById('sAddr').value = s.addr || '';
+  document.getElementById('sPrintRows').value = s.printRows || 6;
+  document.getElementById('sPrintRowH').value = s.printRowH || 52;
+  document.getElementById('sGeminiKey').value = s.geminiKey || '';
   openModal('modalSettings');
 }
 function saveSettings() {
@@ -832,7 +884,10 @@ function saveSettings() {
     codeD: document.getElementById('sCodeD').value.trim() || 'PL',
     footer: document.getElementById('sFooter').value.trim(),
     name: document.getElementById('sName').value.trim(),
-    addr: document.getElementById('sAddr').value.trim()
+    addr: document.getElementById('sAddr').value.trim(),
+    printRows: parseInt(document.getElementById('sPrintRows').value) || 6,
+    printRowH: parseInt(document.getElementById('sPrintRowH').value) || 52,
+    geminiKey: document.getElementById('sGeminiKey').value.trim()
   };
   save(); closeModal('modalSettings'); showToast('Ustawienia zapisane ✓');
 }
@@ -974,18 +1029,20 @@ function generatePassportPDF() {
       </div>`;
   }
 
-  const totalPages = Math.ceil(labels.length / 12);
+  const ROWS = data.settings.printRows || 6;
+  const ROW_H = (data.settings.printRowH || 52) + 'mm';
+  const labelsPerPage = ROWS * 2;
+  const totalPages = Math.ceil(labels.length / labelsPerPage);
   let allPages = '';
 
   for (let pg = 0; pg < totalPages; pg++) {
     let rows = '';
-    for (let row = 0; row < 6; row++) {
-      const heightStyle = 'height:51mm;';
-      const p0 = labels[pg * 12 + row * 2 + 0] || null;
-      const p1 = labels[pg * 12 + row * 2 + 1] || null;
+    for (let row = 0; row < ROWS; row++) {
+      const p0 = labels[pg * labelsPerPage + row * 2 + 0] || null;
+      const p1 = labels[pg * labelsPerPage + row * 2 + 1] || null;
       rows += `<tr>
-        <td style="${heightStyle}width:105mm;padding:4mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${cellContent(p0)}</td>
-        <td style="${heightStyle}width:105mm;padding:3mm 4mm 3mm 9mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${cellContent(p1)}</td>
+        <td style="height:${ROW_H};width:105mm;padding:4mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${cellContent(p0)}</td>
+        <td style="height:${ROW_H};width:105mm;padding:3mm 4mm 3mm 9mm;vertical-align:top;overflow:hidden;border:0.2pt solid #e0e0e0;box-sizing:border-box;">${cellContent(p1)}</td>
       </tr>`;
     }
     allPages += `
@@ -1407,11 +1464,83 @@ function migrateRegNos() {
   if (changed) { save(); }
 }
 
+// ─── AI IDENTYFIKACJA BRAKÓW ─────────────────────────────────────────────────
+let aiImageBase64 = null;
+
+function loadAIImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    aiImageBase64 = ev.target.result.split(',')[1];
+    document.getElementById('aiImgEl').src = ev.target.result;
+    document.getElementById('aiImgPreview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeDeficiency() {
+  const key = data.settings.geminiKey;
+  if (!key) {
+    showToast('Dodaj klucz Gemini w Ustawieniach!');
+    openModal('modalSettings');
+    return;
+  }
+  const symptoms = document.getElementById('aiSymptoms').value.trim();
+  const resultEl = document.getElementById('aiResult');
+  const btn = document.querySelector('#modalAI .btn-primary');
+
+  btn.textContent = '⏳ Analizuję…';
+  btn.disabled = true;
+  resultEl.style.display = 'none';
+
+  const prompt = `Jesteś ekspertem od akwarystyki roślinnej. Przeanalizuj zdjęcie rośliny akwariowej i zidentyfikuj:
+1. Możliwe niedobory pierwiastków (N, P, K, Ca, Mg, Fe, Mn, B, Cu, Zn, Mo, S)
+2. Możliwe agrofagi lub choroby
+3. Konkretne zalecenia naprawcze
+
+${symptoms ? 'Dodatkowe objawy opisane przez użytkownika: ' + symptoms : ''}
+
+Odpowiedz po polsku, konkretnie i praktycznie. Format:
+🔍 DIAGNOZA: [główna przyczyna]
+📋 OBJAWY: [co widać na zdjęciu]
+⚗️ MOŻLIWE NIEDOBORY: [lista pierwiastków]
+🐛 AGROFAGI/CHOROBY: [jeśli widoczne]
+💊 ZALECENIA: [konkretne kroki]
+⚠️ UWAGI: [dodatkowe informacje]`;
+
+  try {
+    const body = {
+      contents: [{
+        parts: [
+          ...(aiImageBase64 ? [{ inline_data: { mime_type: 'image/jpeg', data: aiImageBase64 } }] : []),
+          { text: prompt }
+        ]
+      }]
+    };
+
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + key,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    const data2 = await resp.json();
+    const text = data2?.candidates?.[0]?.content?.parts?.[0]?.text || 'Brak odpowiedzi';
+    resultEl.textContent = text;
+    resultEl.style.display = 'block';
+  } catch(e) {
+    resultEl.textContent = 'Błąd: ' + e.message;
+    resultEl.style.display = 'block';
+  }
+
+  btn.textContent = '🔬 Analizuj';
+  btn.disabled = false;
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.4.8 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.5.0 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
