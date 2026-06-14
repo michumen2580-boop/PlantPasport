@@ -1088,32 +1088,78 @@ function exportExcel() {
 function exportListPDF() {
   const s = data.settings;
   const today = new Date().toLocaleDateString('pl-PL');
+  const dateSlug = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  // Nazwa pliku: Lista_Roslin_YYYYMMDD
+  const filename = `Lista_Roslin_${dateSlug}`;
+
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
-    @page { size: A4; margin: 20mm 15mm; }
-    body { font-family: Arial, sans-serif; font-size: 9pt; color: #111; }
-    h1 { text-align: center; font-size: 14pt; margin-bottom: 4mm; }
-    table { width: 100%; border-collapse: collapse; font-size: 8pt; }
-    th { background: #1a3a2a; color: white; padding: 3mm 2mm; text-align: left; }
-    td { padding: 2mm; border-bottom: 0.5pt solid #ccc; }
-    tr:nth-child(even) td { background: #f5f5f5; }
-    .footer { margin-top: 8mm; font-size: 8pt; color: #555; }
+    @page { size: A4; margin: 12mm 10mm 10mm; }
+    body { font-family: Arial, sans-serif; font-size: 7.5pt; color: #111; }
+    h1 { text-align: center; font-size: 11pt; margin-bottom: 3mm; font-weight: bold; }
+    .subtitle { text-align:center; font-size:7pt; color:#555; margin-bottom:3mm; }
+    table { width: 100%; border-collapse: collapse; font-size: 7pt; }
+    th { background: #1a3a2a; color: white; padding: 1.5mm 1.5mm; text-align: left; font-size: 7pt; white-space: nowrap; }
+    td { padding: 1mm 1.5mm; border-bottom: 0.3pt solid #ddd; vertical-align: top; line-height: 1.3; }
+    tr:nth-child(even) td { background: #f7f7f7; }
+    .num { text-align: center; }
+    .footer { margin-top: 5mm; font-size: 6.5pt; color: #777; border-top: 0.5pt solid #ccc; padding-top: 2mm; }
   </style></head><body>
-  <h1>Lista roślin — ${today}</h1>
+  <h1>🌿 Lista roślin akwarystycznych</h1>
+  <div class="subtitle">${s.name||''} · ${s.addr||''} · ${today}</div>
   <table>
     <thead><tr>
-      <th>Nazwa łacińska</th><th>Pol. nazwa</th><th>Stan</th><th>Nr ewid.</th><th>Kraj</th><th>Trudność</th><th>Światło</th><th>Data zakupu</th><th>Sprzedawca</th><th>Nr paszp. sprzedawcy</th>
+      <th>#</th>
+      <th>Nazwa łacińska</th>
+      <th>Polska nazwa</th>
+      <th class="num">Stan</th>
+      <th>Nr ewid.</th>
+      <th>Trudność</th>
+      <th>Światło</th>
+      <th>CO2</th>
+      <th>Miejsce</th>
+      <th>Data zakupu</th>
+      <th>Sprzedawca</th>
     </tr></thead><tbody>`;
-  data.plants.forEach(p => {
-    html += `<tr><td>${escHtml(p.latin)}</td><td>${escHtml(p.polish||'')}</td><td>${p.qty||0}</td><td>${escHtml(p.regNo||'')}</td><td>${escHtml(p.country||'PL')}</td><td>${escHtml(p.diff||'')}</td><td>${escHtml(p.light||'')}</td><td>${escHtml(p.buyDate||'')}</td><td>${escHtml(p.seller||'')}</td><td>${escHtml(p.sellerPassport||'')}</td></tr>`;
+
+  data.plants.forEach((p, i) => {
+    const hasQty = (p.qty||0) > 0;
+    const rowStyle = hasQty ? '' : 'color:#aaa;';
+    html += `<tr style="${rowStyle}">
+      <td class="num">${i+1}</td>
+      <td><b>${escHtml(p.latin)}</b></td>
+      <td>${escHtml(p.polish||'')}</td>
+      <td class="num"><b>${p.qty||0}</b></td>
+      <td>${escHtml(p.regNo||'')}</td>
+      <td>${escHtml(p.diff||'')}</td>
+      <td>${escHtml(p.light||'')}</td>
+      <td>${escHtml(p.co2||'')}</td>
+      <td>${escHtml(p.placement||'')}</td>
+      <td>${escHtml(p.buyDate||'')}</td>
+      <td>${escHtml(p.seller||'')}</td>
+    </tr>`;
   });
-  html += `</tbody></table>
-  <div class="footer">${escHtml(s.name||'')} · ${escHtml(s.addr||'')}</div>
+
+  const total = data.plants.reduce((s,p) => s+(p.qty||0), 0);
+  const gatunki = data.plants.filter(p=>(p.qty||0)>0).length;
+
+  html += `</tbody>
+  <tfoot><tr>
+    <td colspan="3" style="font-weight:bold;padding-top:1.5mm">Razem: ${gatunki} gatunków z ${data.plants.length}</td>
+    <td class="num" style="font-weight:bold;padding-top:1.5mm">${total}</td>
+    <td colspan="7"></td>
+  </tr></tfoot>
+  </table>
+  <div class="footer">Wygenerowano: ${today} · AquaPassport v1.5.0 · ${escHtml(s.name||'')} · ${escHtml(s.addr||'')}</div>
   </body></html>`;
+
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');
-  if (w) w.onload = () => setTimeout(() => w.print(), 400);
+  if (w) {
+    w.document.title = filename;
+    w.onload = () => setTimeout(() => w.print(), 400);
+  }
 }
 
 // ─── AQUARIUM SCREEN ─────────────────────────────────────────────────────────
@@ -1540,7 +1586,7 @@ Odpowiedz po polsku, konkretnie i praktycznie. Format:
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.5.0 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.5.1 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
