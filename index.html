@@ -927,11 +927,16 @@ function generatePassportPDF() {
   // Kolumny: 2 × 105mm = 210mm
 
   function makeLabel(p, row, col) {
-    const x = col === 0 ? 0 : 110;  // lewa=0mm, prawa=110mm
-    const y = row < 5 ? row * 50 : 250;
-    const h = row < 5 ? 50 : 47;
-    const w = col === 0 ? 105 : 100; // lewa=105mm, prawa=100mm (210-110=100)
-    const showFooter = row < 5;
+    const x = col === 0 ? 0 : 110;
+    // Zakładamy obszar druku: 277mm (297mm - 10mm góra - 10mm dół)
+    // Przesuwamy cały wydruk 10mm od góry
+    // 6 wierszy × 46mm = 276mm — mieści się w 277mm
+    const OFFSET_TOP = 10; // mm od góry (margines drukarki)
+    const ROW_H = 46;      // 6 × 46 = 276mm
+    const y = OFFSET_TOP + row * ROW_H;
+    const h = ROW_H;
+    const w = col === 0 ? 105 : 100;
+    const showFooter = true;
     return `
     <div style="
       position:absolute;
@@ -1409,7 +1414,7 @@ function migrateRegNos() {
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.4.0 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.4.1 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
