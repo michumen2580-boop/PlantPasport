@@ -226,6 +226,7 @@
 
     <!-- SCREEN: ZDROWIE -->
     <div id="screen-health" class="screen">
+      <div id="remindersSection" style="margin-bottom:12px"></div>
       <div class="btn-row" style="margin-bottom:12px">
         <button class="btn btn-primary btn-sm" onclick="openAddReport()">+ Nowy raport</button>
       </div>
@@ -419,6 +420,27 @@
     <div class="form-group">
       <label>Klucz API Gemini (do identyfikacji braków AI)</label>
       <input type="text" id="sGeminiKey" placeholder="Klucz z aistudio.google.com">
+    </div>
+    <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
+      <p style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">🔧 Serwis CO2</p>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ostatnia wymiana butli CO2</label>
+        <input type="date" id="sCo2Date">
+      </div>
+      <div class="form-group">
+        <label>Pojemność butli (g/l)</label>
+        <input type="text" id="sCo2Size" placeholder="np. 500g / 2l">
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
+      <p style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">💾 Kopia zapasowa danych</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-sm" onclick="saveBackup()">⬇️ Pobierz kopię</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('restoreInput').click()">⬆️ Przywróć kopię</button>
+      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreBackup(event)">
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modalSettings')">Anuluj</button>
@@ -876,10 +898,13 @@ function openSettings() {
   document.getElementById('sPrintRows').value = s.printRows || 6;
   document.getElementById('sPrintRowH').value = s.printRowH || 52;
   document.getElementById('sGeminiKey').value = s.geminiKey || '';
+  document.getElementById('sCo2Date').value = s.co2Date || '';
+  document.getElementById('sCo2Size').value = s.co2Size || '';
   openModal('modalSettings');
 }
 function saveSettings() {
   data.settings = {
+    ...data.settings,
     codeB: document.getElementById('sCodeB').value.trim(),
     codeD: document.getElementById('sCodeD').value.trim() || 'PL',
     footer: document.getElementById('sFooter').value.trim(),
@@ -887,7 +912,9 @@ function saveSettings() {
     addr: document.getElementById('sAddr').value.trim(),
     printRows: parseInt(document.getElementById('sPrintRows').value) || 6,
     printRowH: parseInt(document.getElementById('sPrintRowH').value) || 52,
-    geminiKey: document.getElementById('sGeminiKey').value.trim()
+    geminiKey: document.getElementById('sGeminiKey').value.trim(),
+    co2Date: document.getElementById('sCo2Date').value,
+    co2Size: document.getElementById('sCo2Size').value.trim()
   };
   save(); closeModal('modalSettings'); showToast('Ustawienia zapisane ✓');
 }
@@ -1089,85 +1116,98 @@ function exportListPDF() {
   const s = data.settings;
   const today = new Date().toLocaleDateString('pl-PL');
   const dateSlug = new Date().toISOString().slice(0,10).replace(/-/g,'');
-  // Nazwa pliku: Lista_Roslin_YYYYMMDD
   const filename = `Lista_Roslin_${dateSlug}`;
+
+  function co2short(val) {
+    if (!val) return '';
+    const v = val.toLowerCase();
+    if (v.includes('nie')) return 'nie wymagane';
+    if (v.includes('wymagane')) return 'wymagane';
+    if (v.includes('wskazane')) return 'wskazane';
+    return val;
+  }
+
+  const totalQty = data.plants.reduce((acc,p) => acc+(p.qty||0), 0);
+  const gatunki = data.plants.filter(p=>(p.qty||0)>0).length;
 
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
     @page { size: A4; margin: 12mm 10mm 10mm; }
-    body { font-family: Arial, sans-serif; font-size: 7.5pt; color: #111; }
-    h1 { text-align: center; font-size: 11pt; margin-bottom: 3mm; font-weight: bold; }
-    .subtitle { text-align:center; font-size:7pt; color:#555; margin-bottom:3mm; }
-    table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: fixed; }
-    th { background: #1a3a2a; color: white; padding: 1.5mm 1mm; text-align: left; font-size: 6.5pt; overflow:hidden; }
-    td { padding: 1mm 1mm; border-bottom: 0.3pt solid #ddd; vertical-align: top; line-height: 1.3; overflow:hidden; }
-    tr:nth-child(even) td { background: #f7f7f7; }
-    .num { text-align: center; }
-    .nowrap { white-space: nowrap; }
-    .footer { margin-top: 5mm; font-size: 6.5pt; color: #777; border-top: 0.5pt solid #ccc; padding-top: 2mm; }
-    col.c1  { width: 6mm; }
-    col.c2  { width: 38mm; }
-    col.c3  { width: 22mm; }
-    col.c4  { width: 7mm; }
-    col.c5  { width: 14mm; }
-    col.c6  { width: 13mm; }
-    col.c7  { width: 13mm; }
-    col.c8  { width: 15mm; }
-    col.c9  { width: 16mm; }
-    col.c10 { width: 17mm; }
-    col.c11 { width: 17mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 7.5pt; color: #111; margin:0; }
+    h1 { text-align:center; font-size:12pt; margin-bottom:2mm; font-weight:bold; }
+    .producer { text-align:center; font-size:8pt; margin-bottom:5mm; color:#222; border-bottom:1pt solid #1a3a2a; padding-bottom:3mm; }
+    .producer b { font-size:9pt; color:#1a3a2a; }
+    table { width:100%; border-collapse:collapse; font-size:7pt; table-layout:fixed; }
+    col.cn { width:6mm; }
+    col.cl { width:55mm; }
+    col.cp { width:26mm; }
+    col.cs { width:8mm; }
+    col.cr { width:15mm; }
+    col.cd { width:14mm; }
+    col.cw { width:14mm; }
+    col.cc { width:18mm; }
+    col.cm { width:20mm; }
+    th { background:#1a3a2a; color:white; padding:1.5mm 1.5mm; text-align:left; font-size:6.5pt; white-space:nowrap; }
+    th.num { text-align:center; }
+    td { padding:1mm 1.5mm; border-bottom:0.3pt solid #ddd; vertical-align:middle; line-height:1.3; overflow:hidden; white-space:nowrap; }
+    td.wrap { white-space:normal; }
+    td.num { text-align:center; }
+    tr:nth-child(even) td { background:#f0f4f1; }
+    tr.brak td { color:#bbb; }
+    tfoot td { background:#e6ede8 !important; font-weight:bold; border-top:0.8pt solid #1a3a2a; padding:1.5mm; }
+    .footer { margin-top:4mm; font-size:6pt; color:#888; border-top:0.5pt solid #ccc; padding-top:2mm; display:flex; justify-content:space-between; }
   </style></head><body>
   <h1>🌿 Lista roślin akwarystycznych</h1>
-  <div class="subtitle">${s.name||''} · ${s.addr||''} · ${today}</div>
+  <div class="producer">
+    <b>${escHtml(s.name||'Michał Dobrowolski')}</b> &nbsp;|&nbsp;
+    ${escHtml(s.addr||'86-300 Grudziądz, ul. Czerwonodworna 12/12')} &nbsp;|&nbsp;
+    Kod producenta: <b>${escHtml(s.codeB||'PL – 04/62/10732')}</b>
+  </div>
   <table>
     <colgroup>
-      <col class="c1"><col class="c2"><col class="c3"><col class="c4">
-      <col class="c5"><col class="c6"><col class="c7"><col class="c8">
-      <col class="c9"><col class="c10"><col class="c11">
+      <col class="cn"><col class="cl"><col class="cp"><col class="cs">
+      <col class="cr"><col class="cd"><col class="cw"><col class="cc"><col class="cm">
     </colgroup>
     <thead><tr>
       <th class="num">#</th>
       <th>Nazwa łacińska</th>
       <th>Polska nazwa</th>
       <th class="num">Stan</th>
-      <th class="nowrap">Nr ewid.</th>
+      <th>Nr ewid.</th>
       <th>Trudność</th>
       <th>Światło</th>
       <th>CO2</th>
       <th>Miejsce</th>
-      <th>Data zakupu</th>
-      <th>Sprzedawca</th>
-    </tr></thead><tbody>`;
+    </tr></thead>
+    <tbody>`;
 
   data.plants.forEach((p, i) => {
     const hasQty = (p.qty||0) > 0;
-    const rowStyle = hasQty ? '' : 'color:#aaa;';
-    html += `<tr style="${rowStyle}">
+    html += `<tr class="${hasQty?'':'brak'}">
       <td class="num">${i+1}</td>
-      <td><b>${escHtml(p.latin)}</b></td>
-      <td>${escHtml(p.polish||'')}</td>
+      <td class="wrap"><b>${escHtml(p.latin)}</b></td>
+      <td class="wrap">${escHtml(p.polish||'')}</td>
       <td class="num"><b>${p.qty||0}</b></td>
-      <td class="nowrap">${escHtml(p.regNo||'')}</td>
+      <td>${escHtml(p.regNo||'')}</td>
       <td>${escHtml(p.diff||'')}</td>
       <td>${escHtml(p.light||'')}</td>
-      <td>${escHtml(p.co2||'')}</td>
+      <td>${co2short(p.co2)}</td>
       <td>${escHtml(p.placement||'')}</td>
-      <td class="nowrap">${escHtml(p.buyDate||'')}</td>
-      <td>${escHtml(p.seller||'')}</td>
     </tr>`;
   });
 
-  const total = data.plants.reduce((s,p) => s+(p.qty||0), 0);
-  const gatunki = data.plants.filter(p=>(p.qty||0)>0).length;
-
   html += `</tbody>
-  <tfoot><tr>
-    <td colspan="3" style="font-weight:bold;padding-top:1.5mm">Razem: ${gatunki} gatunków z ${data.plants.length}</td>
-    <td class="num" style="font-weight:bold;padding-top:1.5mm">${total}</td>
-    <td colspan="7"></td>
-  </tr></tfoot>
+    <tfoot><tr>
+      <td colspan="3">Razem: ${gatunki} gatunków posiadanych z ${data.plants.length} w bazie</td>
+      <td class="num">${totalQty}</td>
+      <td colspan="5"></td>
+    </tr></tfoot>
   </table>
-  <div class="footer">Wygenerowano: ${today} · AquaPassport v1.5.0 · ${escHtml(s.name||'')} · ${escHtml(s.addr||'')}</div>
+  <div class="footer">
+    <span>Wygenerowano: ${today} · AquaPassport v1.5.2</span>
+    <span>${escHtml(s.name||'')} · ${escHtml(s.codeB||'')}</span>
+  </div>
   </body></html>`;
 
   const blob = new Blob([html], { type: 'text/html' });
@@ -1338,11 +1378,18 @@ function renderAquaLegend() {
 
 // ─── HEALTH / SERWIS SCREEN ──────────────────────────────────────────────────
 function renderHealth() {
-  // Overview
+  renderReminders();
+
+  // Overview zdrowia
   const good = data.plants.filter(p => (p.health||'good') === 'good').length;
   const mid = data.plants.filter(p => p.health === 'mid').length;
   const bad = data.plants.filter(p => p.health === 'bad').length;
+  const co2info = data.settings.co2Date
+    ? `<div style="margin-top:6px;font-size:0.75rem;color:var(--text3)">🫧 Ostatnia wymiana CO2: <b>${data.settings.co2Date}</b>${data.settings.co2Size ? ' · ' + data.settings.co2Size : ''}</div>`
+    : `<div style="margin-top:6px;font-size:0.75rem;color:var(--text3)">🫧 Brak daty wymiany CO2 — <a href="#" onclick="openSettings()" style="color:var(--accent)">dodaj w Ustawieniach</a></div>`;
+
   document.getElementById('healthOverview').innerHTML = `
+    ${renderStatsHistory()}
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:0.78rem;color:var(--text3);margin-bottom:8px">Stan zdrowia roślin</div>
       <div style="display:flex;gap:16px">
@@ -1350,7 +1397,8 @@ function renderHealth() {
         <div><span class="health-dot h-mid"></span><b>${mid}</b> <span style="font-size:0.75rem;color:var(--text3)">Średni</span></div>
         <div><span class="health-dot h-bad"></span><b>${bad}</b> <span style="font-size:0.75rem;color:var(--text3)">Zły</span></div>
       </div>
-      ${bad > 0 ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--danger)">⚠️ Rośliny wymagające uwagi: ${data.plants.filter(p=>p.health==='bad').map(p=>p.latin).join(', ')}</div>` : ''}
+      ${bad > 0 ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--danger)">⚠️ Wymagają uwagi: ${data.plants.filter(p=>p.health==='bad').map(p=>p.latin).join(', ')}</div>` : ''}
+      ${co2info}
     </div>`;
 
   const el = document.getElementById('reportList');
@@ -1527,6 +1575,136 @@ function migrateRegNos() {
   if (changed) { save(); }
 }
 
+// ─── KOPIA ZAPASOWA ──────────────────────────────────────────────────────────
+function saveBackup() {
+  const version = '1.5.4';
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+  const timeStr = now.toTimeString().slice(0,5).replace(':','');
+  const totalQty = data.plants.reduce((s,p) => s+(p.qty||0), 0);
+  const filename = `AquaPassport_v${version}_${dateStr}_${timeStr}_${totalQty}szt.json`;
+
+  // Zapisz snapshot statystyk
+  if (!data.statsHistory) data.statsHistory = [];
+  data.statsHistory.push({
+    date: now.toISOString().slice(0,10),
+    totalPlants: data.plants.length,
+    ownedSpecies: data.plants.filter(p=>(p.qty||0)>0).length,
+    totalQty,
+    snapshot: data.plants.map(p => ({ latin: p.latin, qty: p.qty||0 }))
+  });
+  save();
+
+  const exportData = { ...data, _version: version, _exported: now.toISOString() };
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  showToast(`Kopia: ${filename}`);
+}
+
+function restoreBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('Przywrócić kopię? Obecne dane zostaną zastąpione!')) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const restored = JSON.parse(ev.target.result);
+      // Usuń meta-pola
+      delete restored._version; delete restored._exported;
+      Object.assign(data, restored);
+      save();
+      renderPlants();
+      showToast('Kopia przywrócona ✓');
+      closeModal('modalSettings');
+    } catch(err) {
+      showToast('Błąd pliku kopii!');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ─── PRZYPOMNIENIA I STATYSTYKI ──────────────────────────────────────────────
+function renderReminders() {
+  const el = document.getElementById('remindersSection');
+  if (!el) return;
+  const reminders = [];
+  const now = new Date();
+  const today = now.toISOString().slice(0,10);
+
+  // Sprawdź ostatni raport
+  const lastReport = data.reports && data.reports.length > 0
+    ? data.reports[data.reports.length - 1]
+    : null;
+  if (!lastReport) {
+    reminders.push({ icon:'📋', text:'Brak raportów serwisowych — dodaj pierwszy raport!', color:'var(--warn)' });
+  } else {
+    const daysSince = Math.floor((now - new Date(lastReport.date)) / 86400000);
+    if (daysSince > 14) {
+      reminders.push({ icon:'📋', text:`Ostatni raport: ${daysSince} dni temu (${lastReport.date}). Czas na aktualizację!`, color:'var(--warn)' });
+    }
+  }
+
+  // Sprawdź CO2
+  const co2Date = data.settings.co2Date;
+  if (!co2Date) {
+    reminders.push({ icon:'🫧', text:'Nie ustawiono daty wymiany butli CO2. Dodaj w Ustawieniach.', color:'var(--text3)' });
+  } else {
+    const daysCo2 = Math.floor((now - new Date(co2Date)) / 86400000);
+    if (daysCo2 > 60) {
+      reminders.push({ icon:'🫧', text:`Butla CO2 wymieniana ${daysCo2} dni temu (${co2Date}). Sprawdź poziom!`, color:'var(--danger)' });
+    } else if (daysCo2 > 45) {
+      reminders.push({ icon:'🫧', text:`Butla CO2: ${daysCo2} dni od wymiany — niedługo trzeba wymienić.`, color:'var(--warn)' });
+    }
+  }
+
+  // Sprawdź ostatnią kopię zapasową
+  const lastBackup = data.statsHistory && data.statsHistory.length > 0
+    ? data.statsHistory[data.statsHistory.length - 1]
+    : null;
+  if (!lastBackup) {
+    reminders.push({ icon:'💾', text:'Brak kopii zapasowej! Wykonaj kopię w Ustawieniach.', color:'var(--danger)' });
+  } else {
+    const daysBackup = Math.floor((now - new Date(lastBackup.date)) / 86400000);
+    if (daysBackup > 7) {
+      reminders.push({ icon:'💾', text:`Ostatnia kopia zapasowa: ${daysBackup} dni temu. Zaktualizuj!`, color:'var(--warn)' });
+    }
+  }
+
+  // Rośliny w złym stanie
+  const bad = data.plants.filter(p => p.health === 'bad');
+  if (bad.length > 0) {
+    reminders.push({ icon:'⚠️', text:`${bad.length} roślin w złym stanie: ${bad.slice(0,3).map(p=>p.latin).join(', ')}${bad.length>3?'...':''}`, color:'var(--danger)' });
+  }
+
+  if (!reminders.length) {
+    el.innerHTML = `<div style="background:#14532d;border:1px solid var(--accent);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--accent);margin-bottom:8px">✅ Wszystko w porządku — brak przypomnień</div>`;
+    return;
+  }
+
+  el.innerHTML = reminders.map(r => `
+    <div style="background:var(--card);border-left:3px solid ${r.color};border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:0.78rem;color:var(--text2)">
+      ${r.icon} ${r.text}
+    </div>`).join('');
+}
+
+// Statystyki historii stanów
+function renderStatsHistory() {
+  const hist = data.statsHistory || [];
+  if (!hist.length) return '';
+  const last5 = hist.slice(-5).reverse();
+  return `<div class="card" style="margin-bottom:10px">
+    <div style="font-size:0.78rem;font-weight:600;color:var(--text3);margin-bottom:8px">📊 Historia stanów (z kopii zapasowych)</div>
+    ${last5.map(h => `
+      <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:3px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text3)">${h.date}</span>
+        <span><b>${h.ownedSpecies}</b> gat. / <b>${h.totalQty}</b> szt.</span>
+      </div>`).join('')}
+  </div>`;
+}
+
 // ─── AI IDENTYFIKACJA BRAKÓW ─────────────────────────────────────────────────
 let aiImageBase64 = null;
 
@@ -1603,7 +1781,7 @@ Odpowiedz po polsku, konkretnie i praktycznie. Format:
 load();
 seedDefaultPlants();
 migrateRegNos();
-document.getElementById('headerInfo').textContent = `v1.5.2 · ${data.plants.length} roślin`;
+document.getElementById('headerInfo').textContent = `v1.5.4 · ${data.plants.length} roślin`;
 renderPlants();
 
 // Auto-fill regNo placeholder with current month/year format
